@@ -1,0 +1,52 @@
+disa_manager/
+  README.md
+  requirements.txt
+  app.py
+
+  assets/
+    icons/
+    styles/
+
+  data/
+    disa.db                 # base SQLite (créée automatiquement si absente)
+
+  db/
+    schema.sql              # script SQL de création des tables
+
+  docs/
+    cahier_des_charges_final.md
+    modele_fichier_import.xlsx   # exemple (optionnel)
+
+  src/
+    core/
+      config.py             # chemins, constantes (nom DB, etc.)
+      session.py            # utilisateur connecté
+      security.py           # hash/verify mot de passe (bcrypt/argon2)
+      utils.py              # helpers (dates, conversions, etc.)
+
+    db/
+      connection.py         # connexion SQLite + row_factory
+      init_db.py            # création DB via db/schema.sql
+
+    repositories/           # accès SQL (CRUD)
+      user_repo.py
+      employeur_repo.py
+      traitement_repo.py
+
+    services/               # logique métier
+      auth_service.py
+      import_excel_service.py
+      dashboard_service.py
+
+    ui/
+      main_window.py        # navigation HOME / BASE / DASHBOARD
+      pages/
+        login_dialog.py
+        home_page.py
+        database_page.py
+        dashboard_page.py
+      widgets/
+        employer_search_widget.py
+        employer_info_form.py
+        traitement_form.py
+        kpi_tile.py
