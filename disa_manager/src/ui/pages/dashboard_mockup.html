@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CNPS DiSA — Tableau de bord</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #1e3a5f; --blue: #2563eb; --blue-pale: #dbeafe;
+    --ivory: #f8f7f4; --ivory-dark: #ede9e1; --white: #ffffff;
+    --slate: #64748b; --slate-light: #94a3b8; --border: #e2e8f0;
+    --emerald: #059669; --amber: #d97706;
+    --shadow-sm: 0 1px 4px rgba(30,58,95,0.08);
+    --shadow-md: 0 4px 14px rgba(30,58,95,0.10);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--ivory);
+         color: var(--navy); min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* ── Header ── */
+  .page-header {
+    padding: 22px 28px 16px;
+    display: flex; align-items: flex-end; justify-content: space-between;
+    background: var(--white); border-bottom: 1px solid var(--border);
+  }
+  .page-header h1 { font-family:'Playfair Display',serif; font-size:20px; font-weight:700; color:var(--navy); }
+  .page-header p  { font-size:11px; color:var(--slate); margin-top:3px; text-transform:uppercase; letter-spacing:.5px; }
+  .badge { font-size:11px; font-weight:600; padding:3px 10px; border-radius:20px;
+           background:var(--blue-pale); color:var(--blue); }
+
+  /* ── Content ── */
+  .content { padding:20px 28px; flex:1; display:flex; flex-direction:column; gap:14px; }
+
+  /* ── KPI Row ── */
+  .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+  .kpi-card {
+    background:var(--white); border-radius:12px; padding:16px 18px;
+    border:1px solid var(--border); border-top-width:3px;
+    box-shadow:var(--shadow-sm); min-height:108px;
+    animation: fadeUp .35s ease both;
+  }
+  .kpi-card:nth-child(1){animation-delay:.04s;border-top-color:var(--navy);}
+  .kpi-card:nth-child(2){animation-delay:.08s;border-top-color:var(--emerald);}
+  .kpi-card:nth-child(3){animation-delay:.12s;border-top-color:var(--amber);}
+  .kpi-card:nth-child(4){animation-delay:.16s;border-top-color:var(--blue);}
+  .kpi-label { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.8px; color:var(--slate); }
+  .kpi-value { font-family:'Playfair Display',serif; font-size:32px; font-weight:700; line-height:1.1; margin:6px 0 4px; }
+  .kpi-card:nth-child(1) .kpi-value { color:var(--navy); }
+  .kpi-card:nth-child(2) .kpi-value { color:var(--emerald); }
+  .kpi-card:nth-child(3) .kpi-value { color:var(--amber); }
+  .kpi-card:nth-child(4) .kpi-value { color:var(--blue); }
+  .kpi-sub { font-size:11px; color:var(--slate-light); }
+
+  /* ── Charts row ── */
+  .charts-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .chart-card {
+    background:var(--white); border-radius:12px; border:1px solid var(--border);
+    box-shadow:var(--shadow-sm); overflow:hidden;
+    animation: fadeUp .4s .18s ease both;
+    display:flex; flex-direction:column;
+  }
+  .chart-header {
+    padding:11px 18px 9px; border-bottom:1px solid var(--ivory-dark);
+  }
+  .chart-title { font-size:12.5px; font-weight:700; color:var(--navy); }
+  .chart-subtitle { font-size:10px; color:var(--slate-light); margin-top:2px; }
+  .chart-body { padding:16px 14px; flex:1; }
+
+  /* ── Pie chart (CSS mock) ── */
+  .pie-wrap { display:flex; align-items:center; justify-content:center; gap:24px; height:220px; }
+  .donut {
+    width:160px; height:160px; border-radius:50%;
+    background: conic-gradient(var(--blue) 0% 72%, var(--amber) 72% 100%);
+    box-shadow:0 0 0 26px var(--white) inset;
+    flex-shrink:0;
+  }
+  .pie-legend { display:flex; flex-direction:column; gap:10px; }
+  .pie-leg-item { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--slate); }
+  .pie-dot { width:11px; height:11px; border-radius:3px; }
+
+  /* ── Horizontal bar chart (CSS mock) ── */
+  .hbar-area { display:flex; flex-direction:column; gap:11px; }
+  .hbar-row { display:flex; align-items:center; gap:10px; }
+  .hbar-label { font-size:10.5px; color:var(--slate); width:120px; text-align:right; white-space:nowrap;
+                overflow:hidden; text-overflow:ellipsis; flex-shrink:0; }
+  .hbar-track { flex:1; background:var(--ivory-dark); border-radius:4px; height:16px; overflow:hidden; }
+  .hbar-fill   { height:100%; border-radius:4px; background:var(--navy); }
+  .hbar-val    { font-size:10px; color:var(--slate-light); width:24px; text-align:left; }
+
+  /* ── Full-width bar chart card ── */
+  .chart-card-full { animation: fadeUp .4s .26s ease both; }
+
+  /* fake grouped bar chart */
+  .grouped-bar-area { height:220px; display:flex; align-items:flex-end; gap:6px; padding:0 6px; border-bottom:1.5px solid var(--ivory-dark); }
+  .bar-group { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; height:100%; justify-content:flex-end; }
+  .bars { display:flex; gap:3px; align-items:flex-end; width:100%; justify-content:center; }
+  .bar { width:22px; border-radius:4px 4px 0 0; min-height:4px; }
+  .bar.r { background:var(--amber); }
+  .bar.t { background:var(--blue); }
+  .bar-lbl { font-size:9px; color:var(--slate-light); text-align:center; margin-top:5px;
+             transform:rotate(-30deg); transform-origin:top center; white-space:nowrap; }
+  .chart-footer { display:flex; justify-content:center; gap:20px; padding:10px 0 4px; }
+  .leg { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--slate); }
+  .leg-dot { width:10px; height:10px; border-radius:3px; }
+
+  @keyframes fadeUp {
+    from { opacity:0; transform:translateY(12px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+</style>
+</head>
+<body>
+
+<header class="page-header">
+  <div>
+    <h1>Tableau de bord</h1>
+    <p>Suivi alimentation des carrières assurés</p>
+  </div>
+  <span class="badge">CNPS DiSA</span>
+</header>
+
+<main class="content">
+
+  <!-- ── Ligne 0 : 4 KPI ── -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">Employeurs enregistrés</div>
+      <div class="kpi-value">142</div>
+      <div class="kpi-sub">Dans la base de données</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">DISA traitées</div>
+      <div class="kpi-value">1 284</div>
+      <div class="kpi-sub">Lignes validées</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">DISA non traitées</div>
+      <div class="kpi-value">318</div>
+      <div class="kpi-sub">Restantes à traiter</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Taux de traitement</div>
+      <div class="kpi-value">80 %</div>
+      <div class="kpi-sub">DISA validées / total</div>
+    </div>
+  </div>
+
+  <!-- ── Ligne 1 : Camembert + Secteurs ── -->
+  <div class="charts-row">
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">Statut global des DISA</div>
+        <div class="chart-subtitle">Lignes traitées vs non traitées</div>
+      </div>
+      <div class="chart-body">
+        <div class="pie-wrap">
+          <div class="donut"></div>
+          <div class="pie-legend">
+            <div class="pie-leg-item">
+              <span class="pie-dot" style="background:#2563eb"></span>
+              Traitées (1 284) — 80 %
+            </div>
+            <div class="pie-leg-item">
+              <span class="pie-dot" style="background:#d97706"></span>
+              Non traitées (318) — 20 %
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div class="chart-title">Employeurs par secteur d'activité</div>
+        <div class="chart-subtitle">Top secteurs — nombre d'employeurs enregistrés</div>
+      </div>
+      <div class="chart-body">
+        <div class="hbar-area">
+          <div class="hbar-row">
+            <span class="hbar-label">Commerce</span>
+            <div class="hbar-track"><div class="hbar-fill" style="width:88%"></div></div>
+            <span class="hbar-val">38</span>
+          </div>
+          <div class="hbar-row">
+            <span class="hbar-label">BTP</span>
+            <div class="hbar-track"><div class="hbar-fill" style="width:68%"></div></div>
+            <span class="hbar-val">29</span>
+          </div>
+          <div class="hbar-row">
+            <span class="hbar-label">Services</span>
+            <div class="hbar-track"><div class="hbar-fill" style="width:55%"></div></div>
+            <span class="hbar-val">24</span>
+          </div>
+          <div class="hbar-row">
+            <span class="hbar-label">Agriculture</span>
+            <div class="hbar-track"><div class="hbar-fill" style="width:42%"></div></div>
+            <span class="hbar-val">18</span>
+          </div>
+          <div class="hbar-row">
+            <span class="hbar-label">Industrie</span>
+            <div class="hbar-track"><div class="hbar-fill" style="width:30%"></div></div>
+            <span class="hbar-val">13</span>
+          </div>
+          <div class="hbar-row">
+            <span class="hbar-label">Santé</span>
+            <div class="hbar-track"><div class="hbar-fill" style="width:18%"></div></div>
+            <span class="hbar-val">8</span>
+          </div>
+          <div class="hbar-row">
+            <span class="hbar-label">Éducation</span>
+            <div class="hbar-track"><div class="hbar-fill" style="width:12%"></div></div>
+            <span class="hbar-val">5</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Ligne 2 : Histogramme par localité ── -->
+  <div class="chart-card chart-card-full">
+    <div class="chart-header">
+      <div class="chart-title">DISA restantes et traitées par localité</div>
+      <div class="chart-subtitle">Comparaison du volume de traitement par localité d'employeur</div>
+    </div>
+    <div class="chart-body">
+      <div class="grouped-bar-area">
+        <div class="bar-group"><div class="bars">
+          <div class="bar r" style="height:70%"></div><div class="bar t" style="height:90%"></div>
+        </div><div class="bar-lbl">Abidjan</div></div>
+        <div class="bar-group"><div class="bars">
+          <div class="bar r" style="height:45%"></div><div class="bar t" style="height:62%"></div>
+        </div><div class="bar-lbl">Bouaké</div></div>
+        <div class="bar-group"><div class="bars">
+          <div class="bar r" style="height:30%"></div><div class="bar t" style="height:48%"></div>
+        </div><div class="bar-lbl">Yamoussoukro</div></div>
+        <div class="bar-group"><div class="bars">
+          <div class="bar r" style="height:20%"></div><div class="bar t" style="height:36%"></div>
+        </div><div class="bar-lbl">San Pédro</div></div>
+        <div class="bar-group"><div class="bars">
+          <div class="bar r" style="height:14%"></div><div class="bar t" style="height:24%"></div>
+        </div><div class="bar-lbl">Korhogo</div></div>
+        <div class="bar-group"><div class="bars">
+          <div class="bar r" style="height:9%"></div><div class="bar t" style="height:16%"></div>
+        </div><div class="bar-lbl">Daloa</div></div>
+        <div class="bar-group"><div class="bars">
+          <div class="bar r" style="height:5%"></div><div class="bar t" style="height:10%"></div>
+        </div><div class="bar-lbl">Man</div></div>
+      </div>
+      <div class="chart-footer">
+        <span class="leg"><span class="leg-dot" style="background:#d97706"></span>DISA restantes</span>
+        <span class="leg"><span class="leg-dot" style="background:#2563eb"></span>DISA traitées</span>
+      </div>
+    </div>
+  </div>
+
+</main>
+</body>
+</html>

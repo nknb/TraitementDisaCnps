@@ -38,6 +38,10 @@ def init_db() -> None:
             if "actions_menees" not in cols:
                 cur.execute("ALTER TABLE traitement_disa ADD COLUMN actions_menees TEXT")
 
+            # nouvelle colonne TRAITÉ PAR (traite_par)
+            if "traite_par" not in cols:
+                cur.execute("ALTER TABLE traitement_disa ADD COLUMN traite_par TEXT")
+
         # 2) Migration pour la table identification_employeurs :
         # ajout des colonnes telephone_2, email_2 et email_3 si elles n'existent pas encore.
         cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='identification_employeurs'")

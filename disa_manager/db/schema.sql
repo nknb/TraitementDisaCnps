@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS traitement_disa (
     nbre_restant_de_rejet INTEGER,
     observations TEXT,
     statut TEXT,
+    traite_par TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (employeur_id) REFERENCES identification_employeurs(id) ON DELETE CASCADE,
     UNIQUE (employeur_id, exercice)

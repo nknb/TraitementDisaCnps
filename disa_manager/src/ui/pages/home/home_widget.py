@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 from .home_ui import Ui_Form
 from db.connection import get_connection
 from core.events import get_data_bus
+from core.session import get_current_user
 
 
 class HomeWidget(QWidget):
@@ -591,7 +592,8 @@ class HomeWidget(QWidget):
                 td.actions_menees,
                 ie.telephone_2,
                 ie.email_2,
-                ie.email_3
+                ie.email_3,
+                td.traite_par
             FROM identification_employeurs ie
             LEFT JOIN traitement_disa td ON td.employeur_id = ie.id
         """
@@ -609,8 +611,8 @@ class HomeWidget(QWidget):
 
         table = self.ui.tableWidget
         table.setRowCount(len(rows))
-        # 23 colonnes existantes + 10 colonnes supplémentaires + 4 colonnes complémentaires + 1 colonne "STATUT"
-        table.setColumnCount(38)
+        # 23 colonnes existantes + 10 colonnes supplémentaires + 5 colonnes complémentaires + 1 colonne "STATUT"
+        table.setColumnCount(39)
 
         for row_index, row in enumerate(rows):
             # row[0] = employeur_id
@@ -655,6 +657,7 @@ class HomeWidget(QWidget):
                 row[35],        # telephone_2
                 row[36],        # email_2
                 row[37],        # email_3
+                row[38],        # traite_par → col 38
             ]
 
             for offset, value in enumerate(extras):
@@ -895,7 +898,11 @@ class HomeWidget(QWidget):
 
             employeur_id = cur.lastrowid
 
-            # Insertion dans traitement_disa (avec STATUT persistant)
+            # Utilisateur courant
+            _user = get_current_user()
+            _traite_par = _user.username if _user else None
+
+            # Insertion dans traitement_disa (avec STATUT persistant et TRAITÉ PAR)
             cur.execute(
                 """
                 INSERT INTO traitement_disa (
@@ -905,8 +912,8 @@ class HomeWidget(QWidget):
                     nbre_de_lignes_rejetees, actions_menees, nbre_de_lignes_rejetees_traitees,
                     nbre_total_de_lignes_validees_apres_traitement_des_rejets,
                     date_de_traitement_rejet, nbre_restant_de_rejet, observations,
-                    statut
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    statut, traite_par
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     employeur_id,
@@ -926,6 +933,7 @@ class HomeWidget(QWidget):
                     nbre_restant,
                     observations,
                     statut,
+                    _traite_par,
                 ),
             )
 
@@ -1016,7 +1024,11 @@ class HomeWidget(QWidget):
                 ),
             )
 
-            # INSERT OR UPDATE dans traitement_disa via ON CONFLICT (en incluant STATUT)
+            # Utilisateur courant
+            _user = get_current_user()
+            _traite_par = _user.username if _user else None
+
+            # INSERT OR UPDATE dans traitement_disa via ON CONFLICT (en incluant STATUT et TRAITÉ PAR)
             cur.execute(
                 """
                 INSERT INTO traitement_disa (
@@ -1026,8 +1038,8 @@ class HomeWidget(QWidget):
                     nbre_de_lignes_rejetees, actions_menees, nbre_de_lignes_rejetees_traitees,
                     nbre_total_de_lignes_validees_apres_traitement_des_rejets,
                     date_de_traitement_rejet, nbre_restant_de_rejet, observations,
-                    statut
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    statut, traite_par
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(employeur_id, exercice) DO UPDATE SET
                     disa_anterieures_a_recueillir = excluded.disa_anterieures_a_recueillir,
                     date_de_reception = excluded.date_de_reception,
@@ -1043,7 +1055,8 @@ class HomeWidget(QWidget):
                     date_de_traitement_rejet = excluded.date_de_traitement_rejet,
                     nbre_restant_de_rejet = excluded.nbre_restant_de_rejet,
                     observations = excluded.observations,
-                    statut = excluded.statut
+                    statut = excluded.statut,
+                    traite_par = excluded.traite_par
                 """,
                 (
                     employeur_id,
@@ -1063,6 +1076,7 @@ class HomeWidget(QWidget):
                     nbre_restant,
                     observations,
                     statut,
+                    _traite_par,
                 ),
             )
 

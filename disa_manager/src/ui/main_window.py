@@ -2,7 +2,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import QIcon, QPixmap
-from PySide6.QtWidgets import QMainWindow
+from PySide6.QtWidgets import QMainWindow, QScrollArea, QWidget, QGridLayout, QFrame
 
 from .ui_sidebar import Ui_MainWindow
 from . import resource_rc  # noqa: F401  # importe les ressources (icônes)
@@ -122,20 +122,43 @@ class MainWindow(QMainWindow):
         self.ui.stackedWidget.setCurrentWidget(container)
 
     def _setup_dashboard_page(self) -> None:
-        """Installe les graphiques du tableau de bord sur la page_2."""
+        """Installe les graphiques du tableau de bord sur la page_2 dans une zone défilante."""
 
         try:
-            layout = self.ui.gridLayout_3  # layout de page_2
+            outer_layout = self.ui.gridLayout_3  # layout de page_2
             label = self.ui.label_5
         except AttributeError:
             return
 
         # Retirer le label placeholder
-        layout.removeWidget(label)
+        outer_layout.removeWidget(label)
         label.deleteLater()
 
-        # Ajout des graphiques du tableau de bord
-        self.dashboard_chart = ChartWidget(layout)
+        # Supprimer les marges du layout parent pour que la scroll area remplisse toute la page
+        outer_layout.setContentsMargins(0, 0, 0, 0)
+        outer_layout.setSpacing(0)
+
+        # Zone défilante : le contenu peut défiler verticalement si trop grand
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setStyleSheet(
+            "QScrollArea { background: #0d1520; border: none; }"
+            "QScrollArea > QWidget > QWidget { background: #0d1520; }"
+        )
+
+        # Widget conteneur à l'intérieur de la scroll area
+        dashboard_container = QWidget()
+        dashboard_container.setStyleSheet("background: #0d1520;")
+        dashboard_grid = QGridLayout(dashboard_container)
+
+        scroll_area.setWidget(dashboard_container)
+        outer_layout.addWidget(scroll_area, 0, 0, 1, 1)
+
+        # Construction du tableau de bord dans le conteneur défilant
+        self.dashboard_chart = ChartWidget(dashboard_grid)
         self.dashboard_chart.add_chart()
 
         # Premier calcul de la taille des polices en fonction de la largeur actuelle
