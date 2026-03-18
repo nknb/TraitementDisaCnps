@@ -1,10 +1,20 @@
 import sqlite3
+import sys
 from pathlib import Path
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-DB_PATH = PROJECT_ROOT / "data" / "disa.db"
-SCHEMA_PATH = PROJECT_ROOT / "db" / "schema.sql"
+if getattr(sys, "frozen", False):
+    # Mode exécutable (PyInstaller) :
+    #   - DB_PATH  : à côté de l'exe, hors bundle (modifiable par l'utilisateur)
+    #   - SCHEMA_PATH : dans _MEIPASS (bundle en lecture seule)
+    _EXE_DIR    = Path(sys.executable).parent
+    _BUNDLE_DIR = Path(sys._MEIPASS)  # type: ignore[attr-defined]
+    DB_PATH     = _EXE_DIR    / "data" / "disa.db"
+    SCHEMA_PATH = _BUNDLE_DIR / "db"   / "schema.sql"
+else:
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+    DB_PATH      = PROJECT_ROOT / "data" / "disa.db"
+    SCHEMA_PATH  = PROJECT_ROOT / "db"   / "schema.sql"
 
 
 def init_db() -> None:

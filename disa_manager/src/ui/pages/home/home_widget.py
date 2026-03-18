@@ -198,17 +198,17 @@ class HomeWidget(QWidget):
             }
             QTableWidget::item { padding: 0px 8px; border: none; }
             QTableWidget::item:selected { background: transparent; }
-            QHeaderView { background: #1e293b; border: none; }
+            QHeaderView { background: #1e3a5f; border: none; }
             QHeaderView::section {
-                background: #1e293b;
-                color: #94a3b8;
+                background: #1e3a5f;
+                color: white;
                 font-family: 'Segoe UI', Arial, sans-serif;
                 font-size: 9px;
                 font-weight: 700;
                 letter-spacing: 0.5px;
                 padding: 7px 8px;
                 border: none;
-                border-right: 1px solid #334155;
+                border-right: 1px solid #2a4f80;
             }
             QHeaderView::section:last { border-right: none; }
             QScrollBar:vertical {
@@ -380,18 +380,37 @@ class HomeWidget(QWidget):
                     widget.setStyleSheet(label_style)
 
     def _style_action_buttons(self) -> None:
-        """Définit le texte des boutons d'action et retire les icônes SVG doublons."""
+        """Définit le texte et le style des boutons d'action (supprime les icônes SVG doublons)."""
         from PySide6.QtGui import QIcon
         _no_icon = QIcon()
+        _btn_base = (
+            "QPushButton {{ background:{bg}; color:white; border-radius:5px;"
+            " padding:6px 14px; font-weight:600; font-size:12px; }}"
+            "QPushButton:hover {{ background:{hov}; }}"
+            "QPushButton:pressed {{ background:{prs}; }}"
+        )
+        _styles = {
+            "add":    _btn_base.format(bg="#1e3a5f", hov="#2a4f80", prs="#16294a"),
+            "update": _btn_base.format(bg="#15803d", hov="#16a34a", prs="#14532d"),
+            "clear":  _btn_base.format(bg="#64748b", hov="#475569", prs="#334155"),
+            "delete": _btn_base.format(bg="#b91c1c", hov="#dc2626", prs="#991b1b"),
+        }
+        _texts = {
+            "add":    "＋  Ajouter",
+            "update": "↻  Mettre à jour",
+            "clear":  "✕  Effacer",
+            "delete": "🗑  Supprimer",
+        }
         try:
-            self.ui.add_btn.setIcon(_no_icon)
-            self.ui.add_btn.setText("＋  Ajouter")
-            self.ui.update_btn.setIcon(_no_icon)
-            self.ui.update_btn.setText("↻  Mettre à jour")
-            self.ui.clear_btn.setIcon(_no_icon)
-            self.ui.clear_btn.setText("✕  Effacer")
-            self.ui.delete_btn.setIcon(_no_icon)
-            self.ui.delete_btn.setText("🗑  Supprimer")
+            for key, btn in [
+                ("add",    self.ui.add_btn),
+                ("update", self.ui.update_btn),
+                ("clear",  self.ui.clear_btn),
+                ("delete", self.ui.delete_btn),
+            ]:
+                btn.setIcon(_no_icon)
+                btn.setText(_texts[key])
+                btn.setStyleSheet(_styles[key])
         except AttributeError:
             pass
 

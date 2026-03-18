@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
 	QWidget,
 	QVBoxLayout,
@@ -14,11 +14,56 @@ from PySide6.QtWidgets import (
 	QTableWidgetItem,
 	QFileDialog,
 	QMessageBox,
+	QFrame,
+	QHeaderView,
+	QSizePolicy,
 )
 
 from db.connection import get_connection
 from services.excel_importer import insert_rows
 from core.events import get_data_bus
+
+# ── Palette commune (identique aux autres pages) ──────────────────────────────
+_BTN_PRIMARY = (
+	"QPushButton { background:#1e3a5f; color:white; border-radius:5px;"
+	" padding:7px 16px; font-weight:600; font-size:12px; }"
+	"QPushButton:hover { background:#2a4f80; }"
+	"QPushButton:pressed { background:#16294a; }"
+	"QPushButton:disabled { background:#9ca3af; }"
+)
+_BTN_SUCCESS = (
+	"QPushButton { background:#15803d; color:white; border-radius:5px;"
+	" padding:7px 16px; font-weight:600; font-size:12px; }"
+	"QPushButton:hover { background:#16a34a; }"
+	"QPushButton:pressed { background:#14532d; }"
+	"QPushButton:disabled { background:#9ca3af; }"
+)
+_BTN_NEUTRAL = (
+	"QPushButton { background:#64748b; color:white; border-radius:5px;"
+	" padding:7px 16px; font-weight:600; font-size:12px; }"
+	"QPushButton:hover { background:#475569; }"
+	"QPushButton:pressed { background:#334155; }"
+)
+_INPUT_STYLE = (
+	"QLineEdit, QComboBox { border:1px solid #d1d5db; border-radius:5px;"
+	" padding:6px 10px; font-size:12px; background:white; color:#1f2937; }"
+	"QLineEdit:focus, QComboBox:focus { border:2px solid #1e3a5f; }"
+	"QLineEdit:read-only { background:#f1f5f9; color:#6b7280; }"
+)
+_TABLE_STYLE = (
+	"QTableWidget { border:1px solid #e2e8f0; border-radius:6px;"
+	" font-size:12px; background:white; gridline-color:#f1f5f9; outline:none; }"
+	"QTableWidget::item { padding:6px 10px; }"
+	"QTableWidget::item:selected { background:#dbeafe; color:#1e3a5f; }"
+	"QTableWidget::item:alternate { background:#f8fafc; }"
+	"QHeaderView::section { background:#1e3a5f; color:white; font-weight:700;"
+	" font-size:11px; padding:7px 10px; border:none; border-right:1px solid #2a4f80; }"
+	"QHeaderView::section:last { border-right:none; }"
+	"QScrollBar:vertical { background:#f1f5f9; width:8px; border-radius:4px; margin:0; }"
+	"QScrollBar::handle:vertical { background:#cbd5e1; border-radius:4px; min-height:32px; }"
+	"QScrollBar::handle:vertical:hover { background:#94a3b8; }"
+	"QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0; }"
+)
 
 
 class TraitementWidget(QWidget):
@@ -41,45 +86,97 @@ class TraitementWidget(QWidget):
 		self._df = None  # pandas.DataFrame, chargé à la demande
 
 		main_layout = QVBoxLayout(self)
-		main_layout.setContentsMargins(12, 12, 12, 12)
-		main_layout.setSpacing(10)
+		main_layout.setContentsMargins(0, 0, 0, 0)
+		main_layout.setSpacing(0)
 
-		title = QLabel("Import / Traitement DISA - Fichier Excel")
-		title.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-		title.setStyleSheet("color: black; font-size: 16px; font-weight: 600;")
-		main_layout.addWidget(title)
+		# ── Bandeau en-tête (identique à Users/Base de données) ──────────────
+		header = QFrame()
+		header.setStyleSheet(
+			"QFrame { background: qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+			"stop:0 #1e3a5f, stop:1 #2a4f80); }"
+		)
+		h_box = QHBoxLayout(header)
+		h_box.setContentsMargins(20, 14, 20, 14)
+		h_box.setSpacing(12)
+
+		lbl_title = QLabel("📂  Import Excel — Traitement DISA")
+		f = QFont()
+		f.setPointSize(14)
+		f.setBold(True)
+		lbl_title.setFont(f)
+		lbl_title.setStyleSheet("color:white; background:transparent;")
+		h_box.addWidget(lbl_title)
+		h_box.addStretch(1)
+
+		lbl_hint = QLabel("Glissez un fichier .xlsx et mappez les colonnes")
+		lbl_hint.setStyleSheet(
+			"color:#93c5fd; font-size:12px; font-weight:500; background:transparent;"
+		)
+		h_box.addWidget(lbl_hint)
+		main_layout.addWidget(header)
+
+		# ── Corps ─────────────────────────────────────────────────────────────
+		body = QFrame()
+		body.setStyleSheet("QFrame { background:#f8fafc; }")
+		body_layout = QVBoxLayout(body)
+		body_layout.setContentsMargins(20, 16, 20, 16)
+		body_layout.setSpacing(12)
 
 		# Ligne : champ chemin fichier + bouton parcourir
 		file_row = QHBoxLayout()
+		file_row.setSpacing(8)
+		file_lbl = QLabel("Fichier Excel :")
+		file_lbl.setStyleSheet("font-size:12px; font-weight:600; color:#374151;")
+		file_lbl.setFixedWidth(130)
 		self.file_edit = QLineEdit()
 		self.file_edit.setReadOnly(True)
-		self.file_edit.setPlaceholderText("Choisir un fichier Excel (.xlsx, .xls)...")
-		browse_btn = QPushButton("Parcourir...")
-		browse_btn.clicked.connect(self._on_browse_clicked)
-
-		file_row.addWidget(self.file_edit)
-		file_row.addWidget(browse_btn)
-		main_layout.addLayout(file_row)
+		self.file_edit.setPlaceholderText("Choisir un fichier Excel (.xlsx, .xls)…")
+		self.file_edit.setStyleSheet(_INPUT_STYLE)
+		self.file_edit.setMinimumHeight(34)
+		self.browse_btn = QPushButton("📁  Parcourir…")
+		self.browse_btn.setStyleSheet(_BTN_NEUTRAL)
+		self.browse_btn.setMinimumHeight(34)
+		self.browse_btn.clicked.connect(self._on_browse_clicked)
+		file_row.addWidget(file_lbl)
+		file_row.addWidget(self.file_edit, 1)
+		file_row.addWidget(self.browse_btn)
+		body_layout.addLayout(file_row)
 
 		# Ligne : choix de la table cible
 		table_row = QHBoxLayout()
-		table_label = QLabel("Table cible dans la base :")
-		table_label.setStyleSheet("color: black;")
+		table_row.setSpacing(8)
+		table_label = QLabel("Table cible :")
+		table_label.setStyleSheet("font-size:12px; font-weight:600; color:#374151;")
+		table_label.setFixedWidth(130)
 		self.table_combo = QComboBox()
+		self.table_combo.setStyleSheet(_INPUT_STYLE)
+		self.table_combo.setMinimumHeight(34)
 		table_row.addWidget(table_label)
 		table_row.addWidget(self.table_combo, 1)
-		main_layout.addLayout(table_row)
+		body_layout.addLayout(table_row)
+
+		# Séparateur
+		sep = QFrame()
+		sep.setFrameShape(QFrame.Shape.HLine)
+		sep.setStyleSheet("color:#e2e8f0;")
+		body_layout.addWidget(sep)
 
 		# Boutons d'action
 		actions_row = QHBoxLayout()
-		self.analyze_btn = QPushButton("Préparer le mapping des colonnes")
+		actions_row.setSpacing(10)
+		self.analyze_btn = QPushButton("🔍  Préparer le mapping des colonnes")
+		self.analyze_btn.setStyleSheet(_BTN_PRIMARY)
+		self.analyze_btn.setMinimumHeight(36)
 		self.analyze_btn.clicked.connect(self._on_prepare_mapping)
-		self.import_btn = QPushButton("Importer les données")
-		self.import_btn.clicked.connect(self._on_import_clicked)
+		self.import_btn = QPushButton("⬆  Importer les données")
+		self.import_btn.setStyleSheet(_BTN_SUCCESS)
+		self.import_btn.setMinimumHeight(36)
 		self.import_btn.setEnabled(False)
+		self.import_btn.clicked.connect(self._on_import_clicked)
 		actions_row.addWidget(self.analyze_btn)
 		actions_row.addWidget(self.import_btn)
-		main_layout.addLayout(actions_row)
+		actions_row.addStretch(1)
+		body_layout.addLayout(actions_row)
 
 		# Tableau de mapping : colonnes BD / colonnes Excel (combo box)
 		self.mapping_table = QTableWidget(0, 2)
@@ -88,7 +185,14 @@ class TraitementWidget(QWidget):
 			"Colonne Excel (fichier)",
 		])
 		self.mapping_table.horizontalHeader().setStretchLastSection(True)
-		main_layout.addWidget(self.mapping_table, 1)
+		self.mapping_table.setAlternatingRowColors(True)
+		self.mapping_table.setShowGrid(False)
+		self.mapping_table.setStyleSheet(_TABLE_STYLE)
+		self.mapping_table.verticalHeader().hide()
+		self.mapping_table.verticalHeader().setDefaultSectionSize(36)
+		body_layout.addWidget(self.mapping_table, 1)
+
+		main_layout.addWidget(body, 1)
 
 		self._load_db_tables()
 
@@ -259,7 +363,9 @@ class TraitementWidget(QWidget):
 
 			self.mapping_table.setCellWidget(row_idx, 1, combo)
 
+		# Réactive le bouton d'import (texte remis à l'état initial)
 		self.import_btn.setEnabled(True)
+		self.import_btn.setText("⬆  Importer les données")
 
 		QMessageBox.information(
 			self,
@@ -286,6 +392,23 @@ class TraitementWidget(QWidget):
 		if not table_name:
 			QMessageBox.warning(self, "Table manquante", "Veuillez sélectionner une table dans la base.")
 			return
+
+		# Confirmation avant import : affiche le nombre de lignes pour éviter les clics accidentels
+		nb_lignes = len(self._df)
+		reply = QMessageBox.question(
+			self,
+			"Confirmer l'import",
+			f"Vous allez importer {nb_lignes} ligne(s) dans la table « {table_name} ».\n\n"
+			"Continuer ?",
+			QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+			QMessageBox.StandardButton.No,
+		)
+		if reply != QMessageBox.StandardButton.Yes:
+			return
+
+		# Désactiver le bouton immédiatement pour bloquer tout double-clic
+		self.import_btn.setEnabled(False)
+		self.import_btn.setText("⏳  Import en cours…")
 
 		# Récupération du mapping DB -> Excel à partir du tableau
 		mapped_db_cols: list[str] = []
@@ -399,6 +522,9 @@ class TraitementWidget(QWidget):
 				"Erreur d'import",
 				f"Une erreur est survenue pendant l'import des données : {exc}",
 			)
+			# En cas d'erreur : réactiver pour permettre une nouvelle tentative
+			self.import_btn.setEnabled(True)
+			self.import_btn.setText("⬆  Importer les données")
 			return
 
 		# Affichage du résumé
@@ -416,6 +542,10 @@ class TraitementWidget(QWidget):
 			"Import terminé",
 			"\n".join(message),
 		)
+
+		# Succès : le bouton reste désactivé — l'utilisateur doit refaire le mapping
+		# pour importer un nouveau fichier (évite tout double-import accidentel)
+		self.import_btn.setText("✅  Données importées")
 
 		# Notifie les autres onglets (Accueil, Base de données, Dashboard...)
 		# qu'un import a modifié la base.
