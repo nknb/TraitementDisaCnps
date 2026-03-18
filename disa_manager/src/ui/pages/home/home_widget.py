@@ -94,11 +94,11 @@ class _ModernRowDelegate(QStyledItemDelegate):
 
         painter.restore()
 
-        # 5. Colonne statut → badge pill arrondi
+        # 5. Colonne statut → badge pill compact
         if col == self._STATUS_COL:
             text = index.data(Qt.ItemDataRole.DisplayRole) or ""
-            badge_w = max(len(text) * 7 + 20, 110)
-            badge_h = min(rect.height() - 8, 22)
+            badge_w = max(len(text) * 6 + 14, 90)
+            badge_h = min(rect.height() - 6, 16)
             badge_x = rect.left() + (rect.width() - badge_w) // 2
             badge_y = rect.top() + (rect.height() - badge_h) // 2
             badge_rect = QRectF(badge_x, badge_y, badge_w, badge_h)
@@ -109,7 +109,7 @@ class _ModernRowDelegate(QStyledItemDelegate):
             painter.setPen(Qt.PenStyle.NoPen)
             painter.drawRoundedRect(badge_rect, badge_h / 2, badge_h / 2)
 
-            font = QFont("Segoe UI", 8)
+            font = QFont("Segoe UI", 7)
             font.setBold(True)
             painter.setFont(font)
             painter.setPen(QPen(QColor("white")))
@@ -121,11 +121,11 @@ class _ModernRowDelegate(QStyledItemDelegate):
         text = index.data(Qt.ItemDataRole.DisplayRole)
         if text:
             painter.save()
-            painter.setFont(QFont("Segoe UI", 9))
+            painter.setFont(QFont("Segoe UI", 8))
             painter.setPen(QPen(fg))
             # Décale le texte pour laisser la place à la barre indicatrice sur col 0
-            left_pad = self._BAR_W + 6 if col == 0 else 8
-            text_rect = rect.adjusted(left_pad, 0, -4, 0)
+            left_pad = self._BAR_W + 4 if col == 0 else 5
+            text_rect = rect.adjusted(left_pad, 0, -3, 0)
             raw_align = index.data(Qt.ItemDataRole.TextAlignmentRole)
             alignment = Qt.AlignmentFlag(int(raw_align)) if raw_align is not None else (
                 Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
@@ -174,12 +174,12 @@ class HomeWidget(QWidget):
         # Délégué de rendu moderne
         table.setItemDelegate(_ModernRowDelegate(table))
 
-        # Hauteur de ligne confortable
-        table.verticalHeader().setDefaultSectionSize(38)
+        # Hauteur de ligne compacte
+        table.verticalHeader().setDefaultSectionSize(26)
         table.verticalHeader().hide()
 
-        # En-tête horizontal
-        header_font = QFont("Segoe UI", 9)
+        # En-tête horizontal compact
+        header_font = QFont("Segoe UI", 8)
         header_font.setBold(True)
         table.horizontalHeader().setFont(header_font)
         table.horizontalHeader().setDefaultAlignment(
@@ -196,34 +196,34 @@ class HomeWidget(QWidget):
                 border-radius: 8px;
                 outline: none;
             }
-            QTableWidget::item { padding: 0px 8px; border: none; }
+            QTableWidget::item { padding: 0px 5px; border: none; }
             QTableWidget::item:selected { background: transparent; }
             QHeaderView { background: #1e3a5f; border: none; }
             QHeaderView::section {
                 background: #1e3a5f;
                 color: white;
                 font-family: 'Segoe UI', Arial, sans-serif;
-                font-size: 9px;
+                font-size: 8px;
                 font-weight: 700;
-                letter-spacing: 0.5px;
-                padding: 7px 8px;
+                letter-spacing: 0.3px;
+                padding: 5px 6px;
                 border: none;
                 border-right: 1px solid #2a4f80;
             }
             QHeaderView::section:last { border-right: none; }
             QScrollBar:vertical {
-                background: #f1f5f9; width: 8px; border-radius: 4px; margin: 0;
+                background: #f1f5f9; width: 6px; border-radius: 3px; margin: 0;
             }
             QScrollBar::handle:vertical {
-                background: #cbd5e1; border-radius: 4px; min-height: 32px;
+                background: #cbd5e1; border-radius: 3px; min-height: 20px;
             }
             QScrollBar::handle:vertical:hover { background: #94a3b8; }
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
             QScrollBar:horizontal {
-                background: #f1f5f9; height: 8px; border-radius: 4px; margin: 0;
+                background: #f1f5f9; height: 6px; border-radius: 3px; margin: 0;
             }
             QScrollBar::handle:horizontal {
-                background: #cbd5e1; border-radius: 4px; min-width: 32px;
+                background: #cbd5e1; border-radius: 3px; min-width: 20px;
             }
             QScrollBar::handle:horizontal:hover { background: #94a3b8; }
             QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
@@ -988,7 +988,7 @@ class HomeWidget(QWidget):
             # Badge texte dans la colonne statut (couleur gérée par le délégué)
             statut_text = "✔  TRAITÉ" if is_traite else "✗  NON TRAITÉ"
             status_item = QTableWidgetItem(statut_text)
-            bold_font = QFont("Segoe UI", 9)
+            bold_font = QFont("Segoe UI", 7)
             bold_font.setBold(True)
             status_item.setFont(bold_font)
             status_item.setTextAlignment(
