@@ -42,6 +42,14 @@ def init_db() -> None:
             if "traite_par" not in cols:
                 cur.execute("ALTER TABLE traitement_disa ADD COLUMN traite_par TEXT")
 
+            # nouvelle colonne DATE DE MISE À JOUR (updated_at)
+            # Note : ALTER TABLE ne supporte pas datetime('now') comme défaut non constant
+            if "updated_at" not in cols:
+                cur.execute("ALTER TABLE traitement_disa ADD COLUMN updated_at TEXT")
+                cur.execute(
+                    "UPDATE traitement_disa SET updated_at = created_at WHERE updated_at IS NULL"
+                )
+
         # 2) Migration pour la table identification_employeurs :
         # ajout des colonnes telephone_2, email_2 et email_3 si elles n'existent pas encore.
         cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='identification_employeurs'")

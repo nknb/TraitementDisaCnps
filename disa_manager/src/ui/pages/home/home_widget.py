@@ -1,5 +1,5 @@
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtCore import Qt, QTimer, QDate, QRect, QRectF
+from PySide6.QtGui import QColor, QFont, QPainter, QPen, QBrush
 from PySide6.QtWidgets import (
     QWidget,
     QLabel,
@@ -10,12 +10,128 @@ from PySide6.QtWidgets import (
     QDateEdit,
     QFrame,
     QHBoxLayout,
+    QScrollArea,
+    QSplitter,
+    QSizePolicy,
+    QAbstractItemView,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
+    QStyle,
 )
 
 from .home_ui import Ui_Form
 from db.connection import get_connection
 from core.events import get_data_bus
 from core.session import get_current_user
+
+# Rôle custom pour stocker le flag is_traite sur la colonne 0 de chaque ligne
+_ROLE_IS_TRAITE = Qt.ItemDataRole.UserRole + 10
+
+
+class _ModernRowDelegate(QStyledItemDelegate):
+    """Délégué de rendu moderne pour le tableau Accueil.
+
+    - Fond coloré selon le statut : vert pâle (TRAITÉ) / rouge pâle (NON TRAITÉ)
+    - Barre indicatrice verticale de 5 px sur la première colonne
+    - Badge pill arrondi sur la colonne statut (col 33)
+    - Séparateur horizontal subtil entre lignes
+    - Overlay indigo semi-transparent sur la ligne sélectionnée
+    """
+
+    _STATUS_COL = 33
+
+    # Palette TRAITÉ
+    _TRAITE_BG  = QColor("#ecfdf5")
+    _TRAITE_BAR = QColor("#22c55e")
+    _TRAITE_FG  = QColor("#166534")
+
+    # Palette NON TRAITÉ
+    _NON_BG     = QColor("#fff1f2")
+    _NON_BAR    = QColor("#ef4444")
+    _NON_FG     = QColor("#991b1b")
+
+    # Divers
+    _BAR_W    = 5
+    _SEL_OVRL = QColor(99, 102, 241, 40)   # indigo semi-transparent
+    _DIVIDER  = QColor(0, 0, 0, 12)
+
+    def paint(self, painter: QPainter, option: QStyleOptionViewItem, index) -> None:  # type: ignore[override]
+        row = index.row()
+        col = index.column()
+        model = index.model()
+
+        # Lire le flag is_traite stocké sur la col 0 de la même ligne
+        is_traite = bool(model.index(row, 0).data(_ROLE_IS_TRAITE))
+
+        bg  = self._TRAITE_BG  if is_traite else self._NON_BG
+        bar = self._TRAITE_BAR if is_traite else self._NON_BAR
+        fg  = self._TRAITE_FG  if is_traite else self._NON_FG
+
+        # Très légère alternance sur les lignes paires
+        if row % 2 == 0:
+            bg = bg.darker(103)
+
+        rect = option.rect
+        selected = bool(option.state & QStyle.StateFlag.State_Selected)
+
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        # 1. Fond de la cellule
+        painter.fillRect(rect, bg)
+
+        # 2. Barre indicatrice sur la première colonne
+        if col == 0:
+            painter.fillRect(QRect(rect.left(), rect.top(), self._BAR_W, rect.height()), bar)
+
+        # 3. Séparateur horizontal subtil
+        painter.setPen(QPen(self._DIVIDER, 1))
+        painter.drawLine(rect.bottomLeft(), rect.bottomRight())
+
+        # 4. Overlay de sélection
+        if selected:
+            painter.fillRect(rect, self._SEL_OVRL)
+
+        painter.restore()
+
+        # 5. Colonne statut → badge pill arrondi
+        if col == self._STATUS_COL:
+            text = index.data(Qt.ItemDataRole.DisplayRole) or ""
+            badge_w = max(len(text) * 7 + 20, 110)
+            badge_h = min(rect.height() - 8, 22)
+            badge_x = rect.left() + (rect.width() - badge_w) // 2
+            badge_y = rect.top() + (rect.height() - badge_h) // 2
+            badge_rect = QRectF(badge_x, badge_y, badge_w, badge_h)
+
+            painter.save()
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+            painter.setBrush(QBrush(bar))
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.drawRoundedRect(badge_rect, badge_h / 2, badge_h / 2)
+
+            font = QFont("Segoe UI", 8)
+            font.setBold(True)
+            painter.setFont(font)
+            painter.setPen(QPen(QColor("white")))
+            painter.drawText(badge_rect, Qt.AlignmentFlag.AlignCenter, text)
+            painter.restore()
+            return  # rendu complet, pas d'appel à super()
+
+        # 6. Texte des autres colonnes — dessin direct pour fiabilité cross-platform
+        text = index.data(Qt.ItemDataRole.DisplayRole)
+        if text:
+            painter.save()
+            painter.setFont(QFont("Segoe UI", 9))
+            painter.setPen(QPen(fg))
+            # Décale le texte pour laisser la place à la barre indicatrice sur col 0
+            left_pad = self._BAR_W + 6 if col == 0 else 8
+            text_rect = rect.adjusted(left_pad, 0, -4, 0)
+            raw_align = index.data(Qt.ItemDataRole.TextAlignmentRole)
+            alignment = Qt.AlignmentFlag(int(raw_align)) if raw_align is not None else (
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+            )
+            painter.drawText(text_rect, alignment, str(text))
+            painter.restore()
 
 
 class HomeWidget(QWidget):
@@ -47,24 +163,77 @@ class HomeWidget(QWidget):
         self._style_form_labels()
         self._style_action_buttons()
 
-        # Harmonise la table avec les autres onglets (sélection, alternance des lignes)
+        # ── Tableau moderne ────────────────────────────────────────────────
         table = self.ui.tableWidget
         table.setSelectionBehavior(table.SelectionBehavior.SelectRows)
         table.setSelectionMode(table.SelectionMode.SingleSelection)
-        table.setAlternatingRowColors(True)
+        table.setAlternatingRowColors(False)   # géré par le délégué
         table.setFrameShape(QFrame.Shape.NoFrame)
         table.setShowGrid(False)
 
-        # Police de l'en-tête
-        header_font = QFont("Segoe UI", 10)
+        # Délégué de rendu moderne
+        table.setItemDelegate(_ModernRowDelegate(table))
+
+        # Hauteur de ligne confortable
+        table.verticalHeader().setDefaultSectionSize(38)
+        table.verticalHeader().hide()
+
+        # En-tête horizontal
+        header_font = QFont("Segoe UI", 9)
         header_font.setBold(True)
         table.horizontalHeader().setFont(header_font)
         table.horizontalHeader().setDefaultAlignment(
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         )
+        table.horizontalHeader().setHighlightSections(False)
+        table.horizontalHeader().setStretchLastSection(False)
 
-        # Masque les colonnes techniques pour une vue plus claire
-        # 23 : ID EMPLOYEUR, 32 : ID TRAITEMENT (voir home_ui)
+        # QSS moderne du tableau
+        table.setStyleSheet("""
+            QTableWidget {
+                background: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                outline: none;
+            }
+            QTableWidget::item { padding: 0px 8px; border: none; }
+            QTableWidget::item:selected { background: transparent; }
+            QHeaderView { background: #1e293b; border: none; }
+            QHeaderView::section {
+                background: #1e293b;
+                color: #94a3b8;
+                font-family: 'Segoe UI', Arial, sans-serif;
+                font-size: 9px;
+                font-weight: 700;
+                letter-spacing: 0.5px;
+                padding: 7px 8px;
+                border: none;
+                border-right: 1px solid #334155;
+            }
+            QHeaderView::section:last { border-right: none; }
+            QScrollBar:vertical {
+                background: #f1f5f9; width: 8px; border-radius: 4px; margin: 0;
+            }
+            QScrollBar::handle:vertical {
+                background: #cbd5e1; border-radius: 4px; min-height: 32px;
+            }
+            QScrollBar::handle:vertical:hover { background: #94a3b8; }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+            QScrollBar:horizontal {
+                background: #f1f5f9; height: 8px; border-radius: 4px; margin: 0;
+            }
+            QScrollBar::handle:horizontal {
+                background: #cbd5e1; border-radius: 4px; min-width: 32px;
+            }
+            QScrollBar::handle:horizontal:hover { background: #94a3b8; }
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
+        """)
+
+        # Tableau en lecture seule : modifications uniquement via le formulaire
+        table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+
+        # Masque les colonnes techniques (IDs internes)
+        # 23 : ID EMPLOYEUR, 32 : ID TRAITEMENT
         try:
             table.setColumnHidden(23, True)
             table.setColumnHidden(32, True)
@@ -86,6 +255,77 @@ class HomeWidget(QWidget):
         # Actualisation automatique quand la base change depuis un autre onglet
         get_data_bus().data_changed.connect(self.load_data)
 
+        # ── Mise en page compacte : formulaire + table dans un splitter ──
+        self._setup_compact_layout()
+
+    def _setup_compact_layout(self) -> None:
+        """Encapsule le formulaire dans une QScrollArea et utilise un QSplitter
+        vertical pour que la table occupe l'espace disponible."""
+
+        main_layout = self.ui.gridLayout_5
+
+        # Récupère les widgets existants (ils restent dans le layout pour l'instant)
+        info_frame   = self.ui.info_frame
+        func_frame   = self.ui.function_frame
+        result_frame = self.ui.result_frame
+
+        # Retire les trois widgets du gridLayout principal
+        main_layout.removeWidget(info_frame)
+        main_layout.removeWidget(func_frame)
+        main_layout.removeWidget(result_frame)
+
+        # ── Scroll area autour du formulaire ──────────────────────────────
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet("""
+            QScrollArea { background: transparent; border: none; }
+            QScrollBar:vertical {
+                background: #f1f5f9; width: 6px;
+                border-radius: 3px; margin: 0;
+            }
+            QScrollBar::handle:vertical {
+                background: #94a3b8; border-radius: 3px; min-height: 24px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+        """)
+        scroll.setWidget(info_frame)
+
+        # Conteneur formulaire (scroll) + boutons d'action
+        top_container = QWidget()
+        top_container.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
+        top_layout = QFrame(top_container)
+        from PySide6.QtWidgets import QVBoxLayout
+        tc_layout = QVBoxLayout(top_container)
+        tc_layout.setContentsMargins(0, 0, 0, 0)
+        tc_layout.setSpacing(8)
+        tc_layout.addWidget(scroll)
+        tc_layout.addWidget(func_frame)
+
+        # ── Splitter vertical formulaire / table ──────────────────────────
+        splitter = QSplitter(Qt.Orientation.Vertical)
+        splitter.setHandleWidth(6)
+        splitter.setStyleSheet("""
+            QSplitter::handle {
+                background: #e2e8f0;
+                border-radius: 3px;
+            }
+            QSplitter::handle:hover { background: #94a3b8; }
+        """)
+        splitter.addWidget(top_container)
+        splitter.addWidget(result_frame)
+        # Formulaire ~35 %, table ~65 % de l'espace disponible
+        splitter.setStretchFactor(0, 40)
+        splitter.setStretchFactor(1, 60)
+        splitter.setSizes([380, 380])
+
+        main_layout.addWidget(splitter, 1, 0, 1, 1)
+        main_layout.setRowStretch(1, 1)
+
     # ------------------------------------------------------------------
     # Méthodes de design visuel
     # ------------------------------------------------------------------
@@ -106,14 +346,14 @@ class HomeWidget(QWidget):
         def _make_header(text: str, bg: str) -> QFrame:
             frame = QFrame()
             frame.setStyleSheet(
-                f"QFrame {{ background-color: {bg}; border-radius: 7px; }}"
+                f"QFrame {{ background-color: {bg}; border-radius: 5px; }}"
             )
             h = QHBoxLayout(frame)
-            h.setContentsMargins(14, 7, 14, 7)
+            h.setContentsMargins(10, 3, 10, 3)
             lbl = QLabel(text)
             lbl.setStyleSheet(
                 "color: #ffffff; font-family: 'Segoe UI', Helvetica, Arial, sans-serif; "
-                "font-size: 11px; font-weight: 800; letter-spacing: 1px; background: transparent;"
+                "font-size: 10px; font-weight: 800; letter-spacing: 1px; background: transparent;"
             )
             h.addWidget(lbl)
             return frame
@@ -128,7 +368,7 @@ class HomeWidget(QWidget):
 
         label_style = (
             "color: #374151; font-family: 'Segoe UI', Helvetica, Arial, sans-serif; "
-            "font-size: 10px; font-weight: 700;"
+            "font-size: 9px; font-weight: 700;"
         )
         for layout in (self.ui.gridLayout_2, self.ui.gridLayout_3):
             for row in range(layout.rowCount()):
@@ -140,12 +380,17 @@ class HomeWidget(QWidget):
                     widget.setStyleSheet(label_style)
 
     def _style_action_buttons(self) -> None:
-        """Ajoute un préfixe symbolique aux boutons d'action."""
-
+        """Définit le texte des boutons d'action et retire les icônes SVG doublons."""
+        from PySide6.QtGui import QIcon
+        _no_icon = QIcon()
         try:
+            self.ui.add_btn.setIcon(_no_icon)
             self.ui.add_btn.setText("＋  Ajouter")
+            self.ui.update_btn.setIcon(_no_icon)
             self.ui.update_btn.setText("↻  Mettre à jour")
+            self.ui.clear_btn.setIcon(_no_icon)
             self.ui.clear_btn.setText("✕  Effacer")
+            self.ui.delete_btn.setIcon(_no_icon)
             self.ui.delete_btn.setText("🗑  Supprimer")
         except AttributeError:
             pass
@@ -279,21 +524,25 @@ class HomeWidget(QWidget):
                 widget.setText(labels[row])
 
     def _rename_second_column_labels(self) -> None:
-        """Renomme les libellés de la deuxième colonne (traitement DISA)."""
+        """Renomme les libellés de la deuxième colonne (traitement DISA).
+
+        True  = champ obligatoire  → préfixé par « * » en rouge.
+        False = champ facultatif.
+        """
 
         labels = [
-            "DATE DE RECEPTION",
-            "DATE DE TRAITEMENT",
-            "DATE DE VALIDATION",
-            "EFFECTIF DISA",
-            "NBRE DE LIGNES TRAITEES",
-            "NBRE DE LIGNES VALIDEES",
-            "NBRE DE LIGNES REJETEES",
-            "NBRE DE LIGNES REJETEES TRAITEES",
-            "NBRE TOTAL DE LIGNES VALIDEES APRES TRAITEMENT DES REJETS",
-            "DATE DE TRAITEMENT REJET",
-            "NBRE RESTANT DE REJET",
-            "OBSERVATIONS",
+            ("DATE DE RECEPTION", True),
+            ("DATE DE TRAITEMENT", True),
+            ("DATE DE VALIDATION", True),
+            ("EFFECTIF DISA", True),
+            ("NBRE DE LIGNES TRAITEES", True),
+            ("NBRE DE LIGNES VALIDEES", True),
+            ("NBRE DE LIGNES REJETEES", True),
+            ("NBRE DE LIGNES REJETEES TRAITEES", True),
+            ("NBRE TOTAL DE LIGNES VALIDEES APRES TRAITEMENT DES REJETS", True),
+            ("DATE DE TRAITEMENT REJET", True),
+            ("NBRE RESTANT DE REJET", True),
+            ("OBSERVATIONS", False),
         ]
 
         layout = self.ui.gridLayout_3
@@ -304,7 +553,13 @@ class HomeWidget(QWidget):
                 continue
             widget = item.widget()
             if isinstance(widget, QLabel):
-                widget.setText(labels[row])
+                text, required = labels[row]
+                if required:
+                    widget.setText(
+                        f'<span style="color:#ef4444;font-weight:900;">* </span>{text}'
+                    )
+                else:
+                    widget.setText(text)
 
     # ------------------------------------------------------------------
     # Helpers pour lire/écrire les champs du formulaire
@@ -323,7 +578,7 @@ class HomeWidget(QWidget):
         if isinstance(widget, QComboBox):
             return widget.currentText().strip()
         if isinstance(widget, QDateEdit):
-            from PySide6.QtCore import QDate
+
             d = widget.date()
             # Si la date est la sentinelle "vide", on renvoie une chaîne vide (NULL en base)
             if d == QDate.fromString(self._DATE_SENTINEL, "yyyy-MM-dd"):
@@ -342,7 +597,7 @@ class HomeWidget(QWidget):
         elif isinstance(widget, QComboBox):
             widget.setCurrentText(value)
         elif isinstance(widget, QDateEdit):
-            from PySide6.QtCore import QDate
+
             if value:
                 date = QDate.fromString(value, "yyyy-MM-dd")
                 if not date.isValid():
@@ -409,10 +664,37 @@ class HomeWidget(QWidget):
 
         return employeur_data, traitement_data
 
-    def _compute_statut(self, date_validation: str | None) -> str:
-        """Calcule le statut métier à partir de la date de validation."""
+    def _compute_statut(self, date_traitement: str | None, date_validation: str | None = None) -> str:
+        """Calcule le statut : TRAITÉ si date_de_traitement OU date_de_validation est renseignée."""
 
-        return "TRAITÉ" if date_validation else "NON TRAITÉ"
+        return "TRAITÉ" if (date_traitement or date_validation) else "NON TRAITÉ"
+
+    def _validate_traitement_fields(self, traitement_data: dict) -> str | None:
+        """Vérifie les champs obligatoires du traitement DISA.
+
+        Retourne un message d'erreur si un champ est manquant, None sinon.
+        """
+        required_fields = [
+            ("date_reception",        "* Date de réception"),
+            ("date_traitement",       "* Date de traitement"),
+            ("date_validation",       "* Date de validation"),
+            ("effectif_disa",         "* Effectif DISA"),
+            ("nbre_traitees",         "* Nbre de lignes traitées"),
+            ("nbre_validees",         "* Nbre de lignes validées"),
+            ("nbre_rejetees",         "* Nbre de lignes rejetées"),
+            ("nbre_rejetees_traitees","* Nbre de lignes rejetées traitées"),
+            ("nbre_total_validees",   "* Nbre total de lignes validées"),
+            ("date_traitement_rejet", "* Date de traitement rejet"),
+            ("nbre_restant",          "* Nbre restant de rejet"),
+        ]
+        missing = [
+            label
+            for key, label in required_fields
+            if traitement_data.get(key) is None or str(traitement_data.get(key, "")).strip() == ""
+        ]
+        if missing:
+            return "Les champs suivants sont obligatoires :\n" + "\n".join(f"  {m}" for m in missing)
+        return None
 
     def _configure_date_and_input_widgets(self) -> None:
         """Configure les champs de date cliquables et remplace les listes déroulantes.
@@ -613,6 +895,8 @@ class HomeWidget(QWidget):
         table.setRowCount(len(rows))
         # 23 colonnes existantes + 10 colonnes supplémentaires + 5 colonnes complémentaires + 1 colonne "STATUT"
         table.setColumnCount(39)
+        # Entête de la colonne TRAITÉ PAR (col 38)
+        table.setHorizontalHeaderItem(38, QTableWidgetItem("TRAITÉ PAR"))
 
         for row_index, row in enumerate(rows):
             # row[0] = employeur_id
@@ -669,27 +953,23 @@ class HomeWidget(QWidget):
                 item = QTableWidgetItem("" if value is None else str(value))
                 table.setItem(row_index, col_index, item)
 
-            # 3) Colonne de statut (33) + couleur de ligne (2 statuts, très visibles)
+            # 3) Colonne statut (col 33) + flag de couleur pour le délégué
             statut_db = (row[24] or "").strip() if len(row) > 24 else ""
-
-            # Sécurise : si le statut n'est pas encore renseigné, on le déduit de la date de validation
             if not statut_db:
                 date_validation_val = row[14]
                 statut_db = "TRAITÉ" if date_validation_val else "NON TRAITÉ"
 
-            if statut_db.upper() == "TRAITÉ":
-                statut = "✔  TRAITÉ"
-                bg_color = QColor("#dcfce7")   # vert clair (pastel)
-                fg_color = QColor("#166534")   # texte vert foncé
-            else:
-                statut = "✗  NON TRAITÉ"
-                bg_color = QColor("#fee2e2")   # rouge clair (pastel)
-                fg_color = QColor("#991b1b")   # texte rouge foncé
+            is_traite = statut_db.upper() == "TRAITÉ"
 
-            status_item = QTableWidgetItem(statut)
-            status_item.setBackground(bg_color)
-            status_item.setForeground(fg_color)
-            bold_font = QFont("Segoe UI", 10)
+            # Stocker le flag sur la col 0 pour que le délégué colorise toute la ligne
+            col0_item = table.item(row_index, 0)
+            if col0_item is not None:
+                col0_item.setData(_ROLE_IS_TRAITE, is_traite)
+
+            # Badge texte dans la colonne statut (couleur gérée par le délégué)
+            statut_text = "✔  TRAITÉ" if is_traite else "✗  NON TRAITÉ"
+            status_item = QTableWidgetItem(statut_text)
+            bold_font = QFont("Segoe UI", 9)
             bold_font.setBold(True)
             status_item.setFont(bold_font)
             status_item.setTextAlignment(
@@ -721,38 +1001,22 @@ class HomeWidget(QWidget):
             self._set_text_in_layout(layout2, col, value)
 
         # Colonnes 11..22 -> layout_3
+        # Après l'insertion d'ACTIONS MENÉES au rang _actions_menees_row (=7),
+        # les rangs ≥ 7 sont décalés de +1 dans le layout.
         layout3 = self.ui.gridLayout_3
         for col in range(11, 23):
             item = table.item(row, col)
             value = item.text() if item else ""
-            self._set_text_in_layout(layout3, col - 11, value)
+            form_row = col - 11
+            if self._actions_menees_row is not None and form_row >= self._actions_menees_row:
+                form_row += 1
+            self._set_text_in_layout(layout3, form_row, value)
 
-        # Champ supplémentaire : ACTIONS MENÉES (récupéré directement depuis la BD)
-        try:
-            employeur_id = self._get_current_employeur_id()
-            exercice_item = table.item(row, 9)
-            exercice_val = exercice_item.text().strip() if exercice_item else ""
-            exercice = int(exercice_val) if exercice_val else None
-        except ValueError:
-            employeur_id = None
-            exercice = None
-
-        if employeur_id is not None and exercice is not None:
-            try:
-                conn = get_connection()
-                with conn:
-                    cur = conn.cursor()
-                    cur.execute(
-                        "SELECT actions_menees FROM traitement_disa WHERE employeur_id = ? AND exercice = ?",
-                        (employeur_id, exercice),
-                    )
-                    row_db = cur.fetchone()
-                    if row_db:
-                        actions_val = row_db[0] or ""
-                        if self._actions_menees_row is not None:
-                            self._set_text_in_layout(layout3, self._actions_menees_row, actions_val)
-            except Exception:
-                pass
+        # ACTIONS MENÉES : déjà présente en colonne 34 du tableau — pas de requête BD
+        if self._actions_menees_row is not None:
+            actions_item = table.item(row, 34)
+            actions_val = actions_item.text() if actions_item else ""
+            self._set_text_in_layout(layout3, self._actions_menees_row, actions_val)
 
     def _get_current_employeur_id(self) -> int | None:
         """Récupère l'id employeur stocké dans la ligne sélectionnée du tableau."""
@@ -850,8 +1114,16 @@ class HomeWidget(QWidget):
         nbre_restant = traitement_data["nbre_restant"]
         observations = traitement_data["observations"]
 
-        # Statut persistant dans la BD : basé sur la présence de date_de_validation
-        statut = self._compute_statut(date_validation)
+        # Auto-renseigne date_traitement si des données de traitement sont présentes sans date
+        has_treatment_data = any([
+            effectif_disa, nbre_traitees, nbre_validees, nbre_rejetees, actions_menees,
+        ])
+        if not date_traitement and not date_validation and has_treatment_data:
+            date_traitement = QDate.currentDate().toString("yyyy-MM-dd")
+            self._set_text_in_layout(self.ui.gridLayout_3, 1, date_traitement)
+
+        # Statut persistant dans la BD : basé sur la présence de date_de_traitement ou date_de_validation
+        statut = self._compute_statut(date_traitement, date_validation)
 
         if numero is None or not numero_cnps or not raison_sociale:
             QMessageBox.warning(
@@ -859,6 +1131,13 @@ class HomeWidget(QWidget):
                 "Champs manquants",
                 "Les champs N°, Numéro CNPS et Raison sociale sont obligatoires.",
             )
+            return
+
+        # Validation des champs obligatoires du traitement DISA
+        traitement_data["date_traitement"] = date_traitement
+        err = self._validate_traitement_fields(traitement_data)
+        if err:
+            QMessageBox.warning(self, "Champs obligatoires manquants", err)
             return
 
         try:
@@ -979,8 +1258,17 @@ class HomeWidget(QWidget):
         nbre_restant = traitement_data["nbre_restant"]
         observations = traitement_data["observations"]
 
-        # Statut persistant dans la BD : basé sur la présence de date_de_validation
-        statut = self._compute_statut(date_validation)
+        # Si l'agent a rempli des données de traitement mais n'a pas saisi de date,
+        # on auto-renseigne date_traitement à aujourd'hui pour déclencher le statut TRAITÉ.
+        has_treatment_data = any([
+            effectif_disa, nbre_traitees, nbre_validees, nbre_rejetees, actions_menees,
+        ])
+        if not date_traitement and not date_validation and has_treatment_data:
+            date_traitement = QDate.currentDate().toString("yyyy-MM-dd")
+            self._set_text_in_layout(self.ui.gridLayout_3, 1, date_traitement)
+
+        # Statut persistant dans la BD : basé sur la présence de date_de_traitement ou date_de_validation
+        statut = self._compute_statut(date_traitement, date_validation)
 
         if numero is None or not numero_cnps or not raison_sociale or exercice is None:
             QMessageBox.warning(
@@ -988,6 +1276,13 @@ class HomeWidget(QWidget):
                 "Champs manquants",
                 "Les champs N°, Numéro CNPS, Raison sociale et Exercice sont obligatoires pour la mise à jour.",
             )
+            return
+
+        # Validation des champs obligatoires du traitement DISA
+        traitement_data["date_traitement"] = date_traitement
+        err = self._validate_traitement_fields(traitement_data)
+        if err:
+            QMessageBox.warning(self, "Champs obligatoires manquants", err)
             return
 
         try:
@@ -1056,7 +1351,8 @@ class HomeWidget(QWidget):
                     nbre_restant_de_rejet = excluded.nbre_restant_de_rejet,
                     observations = excluded.observations,
                     statut = excluded.statut,
-                    traite_par = excluded.traite_par
+                    traite_par = excluded.traite_par,
+                    updated_at = datetime('now')
                 """,
                 (
                     employeur_id,

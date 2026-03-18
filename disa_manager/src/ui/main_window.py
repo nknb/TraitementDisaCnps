@@ -8,9 +8,11 @@ from .ui_sidebar import Ui_MainWindow
 from . import resource_rc  # noqa: F401  # importe les ressources (icônes)
 from .pages.home.home_widget import HomeWidget
 from .pages.dashbord import ChartWidget
+from .pages.agent_dashboard import AgentChartWidget
 from .pages.traitement_widget import TraitementWidget
 from .pages.database_widget import EmployersDatabaseWidget
 from .pages.users_widget import UsersWidget
+from core.session import get_current_user
 
 
 class MainWindow(QMainWindow):
@@ -39,6 +41,7 @@ class MainWindow(QMainWindow):
         self._setup_database_page()
         self._setup_users_page()
         self._setup_navigation()
+        self._apply_role_restrictions()
         # Permet de rendre les polices du dashboard réactives au redimensionnement
         try:
             self.ui.page_2.installEventFilter(self)
@@ -101,6 +104,13 @@ class MainWindow(QMainWindow):
             # Si la structure change dans le futur, on évite de casser l'appli.
             pass
 
+        # Masque le champ de recherche global de la barre latérale
+        try:
+            self.ui.search_input.hide()
+            self.ui.search_btn.hide()
+        except AttributeError:
+            pass
+
     def _setup_home_page(self) -> None:
         """Remplace la page Home par l'interface définie dans home_ui."""
 
@@ -157,8 +167,15 @@ class MainWindow(QMainWindow):
         scroll_area.setWidget(dashboard_container)
         outer_layout.addWidget(scroll_area, 0, 0, 1, 1)
 
-        # Construction du tableau de bord dans le conteneur défilant
-        self.dashboard_chart = ChartWidget(dashboard_grid)
+        # Construction du tableau de bord selon le rôle de l'utilisateur
+        # - admin  → dashboard global (ChartWidget)
+        # - agent  → dashboard personnel (AgentChartWidget)
+        user = get_current_user()
+        if user is not None and user.role == "admin":
+            self.dashboard_chart = ChartWidget(dashboard_grid)
+        else:
+            self.dashboard_chart = AgentChartWidget(dashboard_grid)
+
         self.dashboard_chart.add_chart()
 
         # Premier calcul de la taille des polices en fonction de la largeur actuelle
@@ -223,6 +240,37 @@ class MainWindow(QMainWindow):
         # Ajouter notre widget de gestion des utilisateurs
         self.users_widget = UsersWidget(container)
         layout.addWidget(self.users_widget, 0, 0, 1, 1)
+
+    def _apply_role_restrictions(self) -> None:
+        """Masque les pages non autorisées selon le rôle de l'utilisateur connecté.
+
+        - admin : accès complet (aucune restriction)
+        - agent : accès uniquement à Accueil et Tableau de bord personnel
+        """
+        user = get_current_user()
+        if user is None or user.role != "agent":
+            return
+
+        # Boutons à masquer pour le rôle "agent"
+        restricted_buttons = [
+            "orders_btn_1", "orders_btn_2",      # Traitement
+            "products_btn_1", "products_btn_2",   # Base de données
+            "customers_btn_1", "customers_btn_2", # Assurés / Utilisateurs
+        ]
+        try:
+            for btn_name in restricted_buttons:
+                btn = getattr(self.ui, btn_name, None)
+                if btn is not None:
+                    btn.hide()
+        except Exception:
+            pass
+
+        # S'assurer que la page affichée par défaut est l'Accueil
+        try:
+            self.ui.stackedWidget.setCurrentWidget(self.ui.page)
+            self.ui.home_btn_2.setChecked(True)
+        except AttributeError:
+            pass
 
     def eventFilter(self, obj, event):  # type: ignore[override]
         """Ajuste dynamiquement les polices du dashboard quand la fenêtre est redimensionnée."""

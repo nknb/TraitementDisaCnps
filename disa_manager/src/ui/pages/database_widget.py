@@ -795,8 +795,8 @@ class EmployersDatabaseWidget(QWidget):
                     )
                     has_non_traite = (cur.fetchone()[0] or 0) > 0
 
-                    # "NON TRAITÉ" en premier s'il y en a
-                    if has_non_traite:
+                    # "NON TRAITÉ" en premier — seulement s'il n'est pas déjà dans statuts
+                    if has_non_traite and "NON TRAITÉ" not in statuts:
                         self.secteur_combo.addItem("NON TRAITÉ", "NON TRAITÉ")
                     for val in statuts:
                         self.secteur_combo.addItem(val, val)

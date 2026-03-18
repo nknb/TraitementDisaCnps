@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS traitement_disa (
     statut TEXT,
     traite_par TEXT,
     created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (employeur_id) REFERENCES identification_employeurs(id) ON DELETE CASCADE,
     UNIQUE (employeur_id, exercice)
 );
