@@ -17,88 +17,165 @@ class Ui_Form(object):
         font.setFamily("Script MT Bold")
         font.setPointSize(30)
         Form.setFont(font)
-        Form.setStyleSheet("#info_frame {\n"
-"    background-color: #fff;\n"
-"    border: none;\n"
-"    border-radius: 5px;\n"
-"}\n"
-"\n"
-"#info_frame QLabel,\n"
-"#info_frame QLineEdit,\n"
-"#info_frame QComboBox,\n"
-"#function_frame QPushButton,\n"
-"QHeaderView::section\n"
-" {\n"
-"    font-family: Helvetica;\n"
-"    font-size: 12px;\n"
-"}\n"
-"\n"
-"#info_frame QLineEdit,\n"
-"#info_frame QComboBox {\n"
-"    padding: 4px 5px;\n"
-"    border: 1px solid #838383;\n"
-"    border-radius: 2px;\n"
-"}\n"
-"\n"
-"#info_frame QLineEdit:focus,\n"
-"#info_frame QComboBox:focus\n"
-" {\n"
-"    border-color: #0055ff;\n"
-"}\n"
-"\n"
-"QComboBox::drop-down { \n"
-"    background: transparent; \n"
-"    border: none;\n"
-"    margin-right: 5px;\n"
-"} \n"
-"\n"
-"QComboBox::down-arrow {\n"
-"    image: url(./icons/expand_more.svg);\n"
-"}\n"
-"\n"
-"#result_frame {\n"
-"    border-radius: 5px;\n"
-"    background-color: #fff;\n"
-"}\n"
-"\n"
-"QHeaderView::section{\n"
-"    border: none;\n"
-"    border-bottom:1px solid #d0c6ff;\n"
-"    text-align:left;\n"
-"    padding: 3px 5px;\n"
-"}\n"
-"\n"
-"QTableWidget::Item{\n"
-"    border-bottom:1px solid #d0c6ff;\n"
-"    color: black;\n"
-"    padding-left: 3px;\n"
-"}\n"
-"\n"
-"#function_frame QPushButton {\n"
-"    font-size: 14px;\n"
-"    padding: 5px 10px;\n"
-"    border: 2px solid #f0f0f0;\n"
-"    border-radius: 5px;\n"
-"    background-color: #84e8f7;\n"
-"}\n"
-"\n"
-"#function_frame QPushButton:hover {\n"
-"    border-color: #4c96f7;\n"
-"    font-size: 15px;\n"
-"}\n"
-"\n"
-"#function_frame #delete_btn {\n"
-"    background-color: #ff8183;\n"
-"}\n"
-"\n"
-"#function_frame #delete_btn:hover {\n"
-"    border-color: #dc0004;\n"
-"}\n"
-"\n"
-"\n"
-"\n"
-"\n"
-"")
+        Form.setStyleSheet("""
+/* ── Formulaire conteneur ────────────────────────────── */
+#info_frame {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+}
+
+/* ── Labels ──────────────────────────────────────────── */
+#info_frame QLabel {
+    font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    color: #374151;
+}
+
+/* ── Champs texte, ComboBox, DateEdit ────────────────── */
+#info_frame QLineEdit,
+#info_frame QComboBox,
+#info_frame QDateEdit {
+    font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+    font-size: 11px;
+    color: #1f2937;
+    padding: 5px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background-color: #f9fafb;
+    min-height: 26px;
+}
+
+#info_frame QLineEdit:focus,
+#info_frame QComboBox:focus,
+#info_frame QDateEdit:focus {
+    border: 2px solid #2563eb;
+    background-color: #ffffff;
+}
+
+#info_frame QLineEdit:hover,
+#info_frame QComboBox:hover,
+#info_frame QDateEdit:hover {
+    border-color: #9ca3af;
+    background-color: #ffffff;
+}
+
+/* ── ComboBox flèche ─────────────────────────────────── */
+QComboBox::drop-down {
+    background: transparent;
+    border: none;
+    width: 20px;
+}
+QComboBox::down-arrow {
+    image: url(./icons/expand_more.svg);
+    width: 12px;
+    height: 12px;
+}
+
+/* ── DateEdit bouton calendrier ──────────────────────── */
+QDateEdit::drop-down {
+    background: transparent;
+    border: none;
+    width: 20px;
+}
+
+/* ── Conteneur tableau ───────────────────────────────── */
+#result_frame {
+    border-radius: 10px;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+}
+
+/* ── En-tête du tableau ──────────────────────────────── */
+QHeaderView::section {
+    background-color: #1e3a5f;
+    color: #ffffff;
+    font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    border: none;
+    border-right: 1px solid #2d4f7a;
+    border-bottom: 2px solid #3b82f6;
+    padding: 7px 8px;
+    text-align: left;
+}
+QHeaderView::section:last-of-type {
+    border-right: none;
+}
+
+/* ── Cellules du tableau ─────────────────────────────── */
+QTableWidget::item {
+    border-bottom: 1px solid #e5e7eb;
+    color: #1f2937;
+    padding: 3px 6px;
+    font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+    font-size: 11px;
+}
+QTableWidget::item:selected {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+QTableWidget::item:hover {
+    background-color: #eff6ff;
+}
+
+/* ── Boutons barre actions ───────────────────────────── */
+#function_frame QPushButton {
+    font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 7px 18px;
+    border: none;
+    border-radius: 8px;
+    color: #ffffff;
+    background-color: #2563eb;
+}
+#function_frame QPushButton:hover {
+    background-color: #1d4ed8;
+}
+#function_frame QPushButton:pressed {
+    background-color: #1e40af;
+}
+
+/* Ajouter → vert */
+#function_frame #add_btn {
+    background-color: #059669;
+}
+#function_frame #add_btn:hover {
+    background-color: #047857;
+}
+#function_frame #add_btn:pressed {
+    background-color: #065f46;
+}
+
+/* Mettre à jour → bleu indigo */
+#function_frame #update_btn {
+    background-color: #4f46e5;
+}
+#function_frame #update_btn:hover {
+    background-color: #4338ca;
+}
+
+/* Effacer → gris ardoise */
+#function_frame #clear_btn {
+    background-color: #64748b;
+}
+#function_frame #clear_btn:hover {
+    background-color: #475569;
+}
+
+/* Supprimer → rouge */
+#function_frame #delete_btn {
+    background-color: #dc2626;
+}
+#function_frame #delete_btn:hover {
+    background-color: #b91c1c;
+}
+#function_frame #delete_btn:pressed {
+    background-color: #991b1b;
+}
+""")
         self.gridLayout_5 = QtWidgets.QGridLayout(Form)
         self.gridLayout_5.setContentsMargins(20, -1, 20, 20)
         self.gridLayout_5.setVerticalSpacing(15)
@@ -111,10 +188,14 @@ class Ui_Form(object):
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
         self.title_label = QtWidgets.QLabel(parent=self.frame_3)
         font = QtGui.QFont()
-        font.setFamily("Script MT Bold")
-        font.setPointSize(30)
+        font.setFamily("Segoe UI")
+        font.setPointSize(14)
+        font.setBold(True)
         self.title_label.setFont(font)
         self.title_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.title_label.setStyleSheet(
+            "color: #1e3a5f; letter-spacing: 1px; padding: 6px 0;"
+        )
         self.title_label.setObjectName("title_label")
         self.horizontalLayout_2.addWidget(self.title_label)
         self.gridLayout_5.addWidget(self.frame_3, 0, 0, 1, 1)
@@ -245,14 +326,15 @@ class Ui_Form(object):
         item = QtWidgets.QTableWidgetItem()
         self.tableWidget.setItem(20, 0, item)
         self.tableWidget.horizontalHeader().setCascadingSectionResizes(False)
-        self.tableWidget.horizontalHeader().setDefaultSectionSize(120)
-        self.tableWidget.horizontalHeader().setMinimumSectionSize(50)
+        self.tableWidget.horizontalHeader().setDefaultSectionSize(130)
+        self.tableWidget.horizontalHeader().setMinimumSectionSize(60)
         self.tableWidget.horizontalHeader().setStretchLastSection(True)
+        self.tableWidget.horizontalHeader().setHighlightSections(False)
         self.tableWidget.verticalHeader().setVisible(False)
         self.tableWidget.verticalHeader().setCascadingSectionResizes(False)
-        self.tableWidget.verticalHeader().setDefaultSectionSize(28)
+        self.tableWidget.verticalHeader().setDefaultSectionSize(34)
         self.tableWidget.verticalHeader().setHighlightSections(False)
-        self.tableWidget.verticalHeader().setSortIndicatorShown(True)
+        self.tableWidget.verticalHeader().setSortIndicatorShown(False)
         self.tableWidget.verticalHeader().setStretchLastSection(False)
         self.gridLayout_4.addWidget(self.tableWidget, 0, 0, 1, 1)
         self.gridLayout_5.addWidget(self.result_frame, 3, 0, 1, 1)

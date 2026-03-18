@@ -1,5 +1,5 @@
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QWidget,
     QLabel,
@@ -8,6 +8,8 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QMessageBox,
     QDateEdit,
+    QFrame,
+    QHBoxLayout,
 )
 
 from .home_ui import Ui_Form
@@ -39,11 +41,27 @@ class HomeWidget(QWidget):
         self._setup_actions_menees_field()
         self._setup_search_bar()
 
+        # Design : en-têtes de section + style labels + boutons
+        self._add_section_headers()
+        self._style_form_labels()
+        self._style_action_buttons()
+
         # Harmonise la table avec les autres onglets (sélection, alternance des lignes)
         table = self.ui.tableWidget
         table.setSelectionBehavior(table.SelectionBehavior.SelectRows)
         table.setSelectionMode(table.SelectionMode.SingleSelection)
         table.setAlternatingRowColors(True)
+        table.setFrameShape(QFrame.Shape.NoFrame)
+        table.setShowGrid(False)
+
+        # Police de l'en-tête
+        header_font = QFont("Segoe UI", 10)
+        header_font.setBold(True)
+        table.horizontalHeader().setFont(header_font)
+        table.horizontalHeader().setDefaultAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        )
+
         # Masque les colonnes techniques pour une vue plus claire
         # 23 : ID EMPLOYEUR, 32 : ID TRAITEMENT (voir home_ui)
         try:
@@ -66,6 +84,70 @@ class HomeWidget(QWidget):
 
         # Actualisation automatique quand la base change depuis un autre onglet
         get_data_bus().data_changed.connect(self.load_data)
+
+    # ------------------------------------------------------------------
+    # Méthodes de design visuel
+    # ------------------------------------------------------------------
+
+    def _add_section_headers(self) -> None:
+        """Insère des en-têtes colorées au-dessus de chaque colonne du formulaire."""
+
+        layout6 = self.ui.gridLayout_6
+
+        # Retire les deux sous-layouts de la ligne 0 pour les passer en ligne 1
+        item_emp = layout6.itemAtPosition(0, 0)
+        item_trt = layout6.itemAtPosition(0, 1)
+        if item_emp is not None:
+            layout6.removeItem(item_emp)
+        if item_trt is not None:
+            layout6.removeItem(item_trt)
+
+        def _make_header(text: str, bg: str) -> QFrame:
+            frame = QFrame()
+            frame.setStyleSheet(
+                f"QFrame {{ background-color: {bg}; border-radius: 7px; }}"
+            )
+            h = QHBoxLayout(frame)
+            h.setContentsMargins(14, 7, 14, 7)
+            lbl = QLabel(text)
+            lbl.setStyleSheet(
+                "color: #ffffff; font-family: 'Segoe UI', Helvetica, Arial, sans-serif; "
+                "font-size: 11px; font-weight: 800; letter-spacing: 1px; background: transparent;"
+            )
+            h.addWidget(lbl)
+            return frame
+
+        layout6.addWidget(_make_header("IDENTIFICATION EMPLOYEUR", "#1e3a5f"), 0, 0, 1, 1)
+        layout6.addWidget(_make_header("TRAITEMENT DISA", "#14532d"), 0, 1, 1, 1)
+        layout6.addLayout(self.ui.gridLayout_2, 1, 0, 1, 1)
+        layout6.addLayout(self.ui.gridLayout_3, 1, 1, 1, 1)
+
+    def _style_form_labels(self) -> None:
+        """Applique un style uniforme à tous les labels des deux colonnes."""
+
+        label_style = (
+            "color: #374151; font-family: 'Segoe UI', Helvetica, Arial, sans-serif; "
+            "font-size: 10px; font-weight: 700;"
+        )
+        for layout in (self.ui.gridLayout_2, self.ui.gridLayout_3):
+            for row in range(layout.rowCount()):
+                item = layout.itemAtPosition(row, 0)
+                if not item:
+                    continue
+                widget = item.widget()
+                if isinstance(widget, QLabel):
+                    widget.setStyleSheet(label_style)
+
+    def _style_action_buttons(self) -> None:
+        """Ajoute un préfixe symbolique aux boutons d'action."""
+
+        try:
+            self.ui.add_btn.setText("＋  Ajouter")
+            self.ui.update_btn.setText("↻  Mettre à jour")
+            self.ui.clear_btn.setText("✕  Effacer")
+            self.ui.delete_btn.setText("🗑  Supprimer")
+        except AttributeError:
+            pass
 
     def _duplicate_employer_fields(self) -> None:
         """Duplique deux fois N°, Numéro CNPS, Raison sociale."""
@@ -227,6 +309,9 @@ class HomeWidget(QWidget):
     # Helpers pour lire/écrire les champs du formulaire
     # ------------------------------------------------------------------
 
+    # Date sentinelle utilisée pour représenter "aucune date saisie"
+    _DATE_SENTINEL = "2000-01-01"
+
     def _get_text_from_layout(self, layout, row: int) -> str:
         item = layout.itemAtPosition(row, 1)
         if not item:
@@ -237,7 +322,12 @@ class HomeWidget(QWidget):
         if isinstance(widget, QComboBox):
             return widget.currentText().strip()
         if isinstance(widget, QDateEdit):
-            return widget.date().toString("yyyy-MM-dd")
+            from PySide6.QtCore import QDate
+            d = widget.date()
+            # Si la date est la sentinelle "vide", on renvoie une chaîne vide (NULL en base)
+            if d == QDate.fromString(self._DATE_SENTINEL, "yyyy-MM-dd"):
+                return ""
+            return d.toString("yyyy-MM-dd")
         return ""
 
     def _set_text_in_layout(self, layout, row: int, value: str) -> None:
@@ -252,8 +342,12 @@ class HomeWidget(QWidget):
             widget.setCurrentText(value)
         elif isinstance(widget, QDateEdit):
             from PySide6.QtCore import QDate
-
-            date = QDate.fromString(value, "yyyy-MM-dd") if value else QDate.currentDate()
+            if value:
+                date = QDate.fromString(value, "yyyy-MM-dd")
+                if not date.isValid():
+                    date = QDate.fromString(self._DATE_SENTINEL, "yyyy-MM-dd")
+            else:
+                date = QDate.fromString(self._DATE_SENTINEL, "yyyy-MM-dd")
             widget.setDate(date)
 
     def _to_int_or_none(self, value: str):
@@ -331,6 +425,9 @@ class HomeWidget(QWidget):
         layout = self.ui.gridLayout_3
 
         # Lignes utilisées pour les dates dans la deuxième colonne
+        from PySide6.QtCore import QDate
+        _sentinel = QDate.fromString(self._DATE_SENTINEL, "yyyy-MM-dd")
+
         date_rows = [0, 1, 2, 9]
         for row in date_rows:
             item = layout.itemAtPosition(row, 1)
@@ -344,6 +441,10 @@ class HomeWidget(QWidget):
             date_edit = QDateEdit(self.ui.info_frame)
             date_edit.setCalendarPopup(True)
             date_edit.setDisplayFormat("yyyy-MM-dd")
+            # La date minimale sert de sentinelle "non saisie" (affichée comme texte vide)
+            date_edit.setMinimumDate(_sentinel)
+            date_edit.setDate(_sentinel)
+            date_edit.setSpecialValueText("(non définie)")
             layout.addWidget(date_edit, row, 1, 1, 1)
 
         # Remplace toutes les autres QComboBox de la colonne de droite par des QLineEdit
@@ -366,11 +467,9 @@ class HomeWidget(QWidget):
         - Filtrage automatique après une courte pause de saisie
         """
 
-        # On masque les boutons que tu ne veux plus voir
+        # On masque uniquement le bouton "Sélectionner" qui n'a pas de handler
         try:
-            self.ui.add_btn.hide()
             self.ui.select_btn.hide()
-            self.ui.delete_btn.hide()
         except AttributeError:
             pass
 
@@ -383,8 +482,24 @@ class HomeWidget(QWidget):
 
         # Champ unique : recherche par raison sociale ou N° CNPS
         self.search_cnps_line = _QLineEdit(self.ui.function_frame)
-        self.search_cnps_line.setPlaceholderText("Recherche (raison sociale ou N° CNPS)")
+        self.search_cnps_line.setPlaceholderText("🔍  Recherche (raison sociale ou N° CNPS)")
         self.search_cnps_line.setClearButtonEnabled(True)
+        self.search_cnps_line.setMinimumWidth(280)
+        self.search_cnps_line.setStyleSheet(
+            "QLineEdit {"
+            "  border: 1px solid #d1d5db;"
+            "  border-radius: 8px;"
+            "  padding: 7px 12px;"
+            "  font-family: 'Segoe UI', Helvetica, Arial, sans-serif;"
+            "  font-size: 12px;"
+            "  background-color: #f9fafb;"
+            "  color: #374151;"
+            "}"
+            "QLineEdit:focus {"
+            "  border: 2px solid #2563eb;"
+            "  background-color: #ffffff;"
+            "}"
+        )
         layout.insertWidget(0, self.search_cnps_line)
 
         # Timer pour appliquer la recherche automatiquement après une pause de saisie
@@ -560,17 +675,23 @@ class HomeWidget(QWidget):
                 statut_db = "TRAITÉ" if date_validation_val else "NON TRAITÉ"
 
             if statut_db.upper() == "TRAITÉ":
-                statut = "TRAITÉ"
-                bg_color = QColor("#2e7d32")   # vert foncé
-                fg_color = QColor("white")
+                statut = "✔  TRAITÉ"
+                bg_color = QColor("#dcfce7")   # vert clair (pastel)
+                fg_color = QColor("#166534")   # texte vert foncé
             else:
-                statut = "NON TRAITÉ"
-                bg_color = QColor("#c62828")   # rouge foncé
-                fg_color = QColor("white")
+                statut = "✗  NON TRAITÉ"
+                bg_color = QColor("#fee2e2")   # rouge clair (pastel)
+                fg_color = QColor("#991b1b")   # texte rouge foncé
 
             status_item = QTableWidgetItem(statut)
             status_item.setBackground(bg_color)
             status_item.setForeground(fg_color)
+            bold_font = QFont("Segoe UI", 10)
+            bold_font.setBold(True)
+            status_item.setFont(bold_font)
+            status_item.setTextAlignment(
+                Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter
+            )
             table.setItem(row_index, 33, status_item)
 
         # Ajuste automatiquement la largeur des colonnes comme dans les autres onglets

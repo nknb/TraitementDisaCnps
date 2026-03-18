@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from PySide6.QtCore import QEvent
+from PySide6.QtCore import QEvent, Qt
+from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import QMainWindow
 
 from .ui_sidebar import Ui_MainWindow
@@ -30,6 +31,7 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         self._apply_stylesheet()
+        self._apply_cnps_logo()
         self._init_sidebar_state()
         self._setup_home_page()
         self._setup_traitement_page()
@@ -54,6 +56,37 @@ class MainWindow(QMainWindow):
             self.setStyleSheet(qss_path.read_text(encoding="utf-8"))
         except Exception:
             # En cas d'erreur de lecture ou de parsing du QSS, on ignore simplement.
+            pass
+
+    def _apply_cnps_logo(self) -> None:
+        """Remplace le logo R-Disa par le logo officiel CNPS dans la sidebar et la barre de titre."""
+
+        logo_path = Path(__file__).resolve().parent / "images" / "cnps_logo.jpeg"
+        if not logo_path.exists():
+            return
+
+        pixmap = QPixmap(str(logo_path))
+        if pixmap.isNull():
+            return
+
+        try:
+            # Logo sidebar icônes seules — setScaledContents(True) laisse Qt
+            # adapter le pixmap à la taille exacte du label sans rogner les bords.
+            self.ui.logo_label_1.setPixmap(pixmap)
+            self.ui.logo_label_1.setScaledContents(True)
+
+            # Logo sidebar menu complet
+            self.ui.logo_label_2.setPixmap(pixmap)
+            self.ui.logo_label_2.setScaledContents(True)
+
+            # Texte à côté du logo dans la sidebar complète
+            self.ui.logo_label_3.setText("CNPS")
+
+            # Icône de la barre de titre de la fenêtre
+            self.setWindowIcon(QIcon(str(logo_path)))
+            self.setWindowTitle("Traitement DiSA — CNPS")
+
+        except AttributeError:
             pass
 
     def _init_sidebar_state(self) -> None:

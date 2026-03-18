@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
 	QWidget,
 	QVBoxLayout,
@@ -237,8 +238,8 @@ class TraitementWidget(QWidget):
 		for row_idx, db_col in enumerate(db_cols):
 			# Colonne BD (non éditable)
 			item = QTableWidgetItem(db_col)
-			item.setFlags(item.flags() ^ Qt.ItemIsEditable)
-			item.setForeground(Qt.black)
+			item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+			item.setForeground(QColor("black"))
 			self.mapping_table.setItem(row_idx, 0, item)
 
 			# Colonne Excel : combo box

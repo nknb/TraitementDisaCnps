@@ -48,6 +48,9 @@ class ChartWidget:
 
         layout: QGridLayout = self.widget
 
+        # Réinitialise la liste des labels responsifs pour éviter les fuites mémoire
+        self._responsive_label_specs = []
+
         # Nettoie le layout pour reconstruire le contenu
         while layout.count():
             item = layout.takeAt(0)
@@ -325,4 +328,3 @@ class ChartWidget:
 
         # Nota : si on veut ajuster aussi les titres de graphiques, il faudra
         # conserver des références aux QChart créés dans add_chart.
-

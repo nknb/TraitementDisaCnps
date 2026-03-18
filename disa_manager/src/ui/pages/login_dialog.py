@@ -1,4 +1,7 @@
+from pathlib import Path
+
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -12,15 +15,21 @@ from PySide6.QtWidgets import (
 from db.connection import get_connection
 from core.session import set_current_user
 
+_LOGO_PATH = Path(__file__).resolve().parent.parent / "images" / "cnps_logo.jpeg"
+
 
 class LoginDialog(QDialog):
     """Boîte de dialogue de connexion simple (login / mot de passe)."""
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Connexion - Traitement DiSA")
+        self.setWindowTitle("Connexion — Traitement DiSA CNPS")
         self.setModal(True)
-        self.resize(320, 180)
+        self.resize(340, 220)
+
+        # Icône de fenêtre
+        if _LOGO_PATH.exists():
+            self.setWindowIcon(QIcon(str(_LOGO_PATH)))
 
         self.username_edit = QLineEdit(self)
         self.username_edit.setPlaceholderText("Identifiant utilisateur")
@@ -31,8 +40,10 @@ class LoginDialog(QDialog):
 
         self.info_label = QLabel("Veuillez saisir vos identifiants.", self)
         self.info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.info_label.setStyleSheet("color: #374151; font-size: 12px;")
 
         form_layout = QFormLayout()
+        form_layout.setSpacing(10)
         form_layout.addRow("Utilisateur :", self.username_edit)
         form_layout.addRow("Mot de passe :", self.password_edit)
 
@@ -45,6 +56,23 @@ class LoginDialog(QDialog):
         buttons.rejected.connect(self.reject)
 
         main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(12)
+        main_layout.setContentsMargins(24, 20, 24, 20)
+
+        # Logo CNPS centré en haut de la boîte de dialogue
+        # On laisse une marge de 10 px de chaque côté pour éviter le rognage
+        if _LOGO_PATH.exists():
+            logo_lbl = QLabel(self)
+            pix = QPixmap(str(_LOGO_PATH)).scaled(
+                72, 72,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            logo_lbl.setPixmap(pix)
+            logo_lbl.setFixedSize(80, 80)
+            logo_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            main_layout.addWidget(logo_lbl, alignment=Qt.AlignmentFlag.AlignCenter)
+
         main_layout.addWidget(self.info_label)
         main_layout.addLayout(form_layout)
         main_layout.addWidget(buttons)
