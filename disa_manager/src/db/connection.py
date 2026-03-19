@@ -1,8 +1,17 @@
 import sqlite3
+import sys
 from pathlib import Path
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+# En mode exécutable PyInstaller (frozen), __file__ pointe vers _MEIPASS qui
+# est structuré différemment du projet source : on utilise sys.executable pour
+# retrouver le dossier de l'exe.  En mode développement, on remonte depuis ce
+# fichier (src/db/connection.py → 3 niveaux = racine du projet).
+if getattr(sys, "frozen", False):
+    PROJECT_ROOT = Path(sys.executable).parent
+else:
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
 _DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "disa.db"
 
 

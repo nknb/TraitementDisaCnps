@@ -75,7 +75,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,                      # UPX désactivé : évite les faux positifs antivirus Windows
     console=False,                  # pas de fenêtre console noire
     icon=None,                      # remplacer par "src/ui/images/cnps_logo.ico" si disponible
 )
@@ -86,7 +86,7 @@ coll = COLLECT(
     a.zipfiles,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,                      # UPX désactivé : évite les faux positifs antivirus Windows
     upx_exclude=[],
     name="DisaManager",             # -> dist/DisaManager/
 )

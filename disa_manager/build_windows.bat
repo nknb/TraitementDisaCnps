@@ -18,9 +18,15 @@ REM Copier disa.conf dans le dossier de sortie
 REM (vide par defaut = base locale ; a remplir pour reseau partage)
 copy /Y disa.conf dist\DisaManager\disa.conf
 
-REM Creer le dossier data/ a cote de l'exe avec la base initiale
+REM Creer le dossier data/ a cote de l'exe
+REM La base sera initialisee automatiquement par init_db() au premier lancement
 if not exist dist\DisaManager\data mkdir dist\DisaManager\data
-copy /Y data\disa.db dist\DisaManager\data\disa.db
+if exist data\disa.db (
+    copy /Y data\disa.db dist\DisaManager\data\disa.db
+    echo    Base de donnees copiee depuis data\disa.db
+) else (
+    echo    Pas de base source — la base sera creee au premier lancement
+)
 
 echo.
 echo ============================================================
