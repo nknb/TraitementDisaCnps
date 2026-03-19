@@ -1,6 +1,7 @@
+import logging
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
 	QWidget,
@@ -20,8 +21,36 @@ from PySide6.QtWidgets import (
 )
 
 from db.connection import get_connection
-from services.excel_importer import insert_rows
+from services.excel_importer import ImportResult, insert_rows
 from core.events import get_data_bus
+
+logger = logging.getLogger(__name__)
+
+
+class _ImportWorker(QThread):
+    """Thread secondaire pour l'import Excel → SQLite (évite le gel de l'UI)."""
+
+    finished = Signal(object)   # émet un ImportResult
+    error = Signal(str)         # émet un message d'erreur
+
+    def __init__(
+        self,
+        table_name: str,
+        db_columns: list[str],
+        rows: list[list],
+    ) -> None:
+        super().__init__()
+        self._table_name = table_name
+        self._db_columns = db_columns
+        self._rows = rows
+
+    def run(self) -> None:
+        try:
+            result = insert_rows(self._table_name, self._db_columns, self._rows)
+            self.finished.emit(result)
+        except Exception as exc:
+            logger.exception("Erreur dans _ImportWorker")
+            self.error.emit(str(exc))
 
 # ── Palette commune (identique aux autres pages) ──────────────────────────────
 _BTN_PRIMARY = (
@@ -84,6 +113,7 @@ class TraitementWidget(QWidget):
 		self._excel_columns: list[str] = []
 		self._db_columns: list[str] = []
 		self._df = None  # pandas.DataFrame, chargé à la demande
+		self._import_worker: _ImportWorker | None = None  # thread d'import en cours
 
 		main_layout = QVBoxLayout(self)
 		main_layout.setContentsMargins(0, 0, 0, 0)
@@ -513,21 +543,16 @@ class TraitementWidget(QWidget):
 			)
 			return
 
-		# Insertion en base via le service excel_importer
-		try:
-			result = insert_rows(table_name, db_cols_for_insert, rows_to_insert)
-		except Exception as exc:
-			QMessageBox.critical(
-				self,
-				"Erreur d'import",
-				f"Une erreur est survenue pendant l'import des données : {exc}",
-			)
-			# En cas d'erreur : réactiver pour permettre une nouvelle tentative
-			self.import_btn.setEnabled(True)
-			self.import_btn.setText("⬆  Importer les données")
-			return
+		# Lancement de l'import dans un thread secondaire (UI non bloquante)
+		self._import_worker = _ImportWorker(table_name, db_cols_for_insert, rows_to_insert)
+		self._import_worker.finished.connect(self._on_import_finished)
+		self._import_worker.error.connect(self._on_import_error)
+		self._import_worker.start()
 
-		# Affichage du résumé
+	def _on_import_finished(self, result: ImportResult) -> None:
+		"""Appelé dans le thread principal quand l'import se termine avec succès."""
+		self._import_worker = None
+
 		message = [
 			f"Lignes insérées : {result.inserted}",
 			f"Lignes en erreur : {result.errors}",
@@ -537,17 +562,24 @@ class TraitementWidget(QWidget):
 			for err in result.error_messages[:5]:
 				message.append(f"- {err}")
 
-		QMessageBox.information(
-			self,
-			"Import terminé",
-			"\n".join(message),
-		)
+		QMessageBox.information(self, "Import terminé", "\n".join(message))
 
-		# Succès : le bouton reste désactivé — l'utilisateur doit refaire le mapping
+		# Bouton reste désactivé — l'utilisateur doit refaire le mapping
 		# pour importer un nouveau fichier (évite tout double-import accidentel)
 		self.import_btn.setText("✅  Données importées")
 
 		# Notifie les autres onglets (Accueil, Base de données, Dashboard...)
-		# qu'un import a modifié la base.
 		get_data_bus().data_changed.emit()
+
+	def _on_import_error(self, error_msg: str) -> None:
+		"""Appelé dans le thread principal si le thread d'import lève une exception."""
+		self._import_worker = None
+		QMessageBox.critical(
+			self,
+			"Erreur d'import",
+			f"Une erreur est survenue pendant l'import des données :\n{error_msg}",
+		)
+		# Réactiver pour permettre une nouvelle tentative
+		self.import_btn.setEnabled(True)
+		self.import_btn.setText("⬆  Importer les données")
 

@@ -250,6 +250,7 @@ class HomeWidget(QWidget):
         self.ui.tableWidget.cellClicked.connect(self.on_table_row_selected)
 
         # Chargement initial des données
+        self._needs_refresh: bool = False
         self.load_data()
 
         # Actualisation automatique quand la base change depuis un autre onglet
@@ -257,6 +258,12 @@ class HomeWidget(QWidget):
 
         # ── Mise en page compacte : formulaire + table dans un splitter ──
         self._setup_compact_layout()
+
+    def showEvent(self, event) -> None:  # type: ignore[override]
+        """Rafraîchit les données si une mise à jour a eu lieu pendant que le widget était caché."""
+        super().showEvent(event)
+        if self._needs_refresh:
+            self.load_data()
 
     def _setup_compact_layout(self) -> None:
         """Encapsule le formulaire dans une QScrollArea et utilise un QSplitter
@@ -839,6 +846,12 @@ class HomeWidget(QWidget):
         Les colonnes du tableau sont alignées avec les en-têtes définis
         dans Ui_Form.retranslateUi.
         """
+        # Ne pas recharger si le widget n'est pas affiché (évite de bloquer le thread
+        # principal lors du polling data_changed toutes les 4 s)
+        if not self.isVisible():
+            self._needs_refresh = True
+            return
+        self._needs_refresh = False
 
         try:
             conn = get_connection()
@@ -894,7 +907,8 @@ class HomeWidget(QWidget):
                 ie.telephone_2,
                 ie.email_2,
                 ie.email_3,
-                td.traite_par
+                td.traite_par,
+                COALESCE(td.is_suspended, 0) AS is_suspended
             FROM identification_employeurs ie
             LEFT JOIN traitement_disa td ON td.employeur_id = ie.id
         """
@@ -912,10 +926,11 @@ class HomeWidget(QWidget):
 
         table = self.ui.tableWidget
         table.setRowCount(len(rows))
-        # 23 colonnes existantes + 10 colonnes supplémentaires + 5 colonnes complémentaires + 1 colonne "STATUT"
-        table.setColumnCount(39)
-        # Entête de la colonne TRAITÉ PAR (col 38)
+        # 23 colonnes existantes + 10 supplémentaires + 5 complémentaires + 1 STATUT + 1 SUSPENDU
+        table.setColumnCount(40)
+        # Entêtes des colonnes d'extension
         table.setHorizontalHeaderItem(38, QTableWidgetItem("TRAITÉ PAR"))
+        table.setHorizontalHeaderItem(39, QTableWidgetItem("SUSPENDU"))
 
         for row_index, row in enumerate(rows):
             # row[0] = employeur_id
@@ -972,6 +987,21 @@ class HomeWidget(QWidget):
                 item = QTableWidgetItem("" if value is None else str(value))
                 table.setItem(row_index, col_index, item)
 
+            # Col 39 : SUSPENDU (Oui / Non)
+            is_suspended_val = bool(int(row[39] or 0)) if len(row) > 39 else False
+            susp_item = QTableWidgetItem("Oui" if is_suspended_val else "Non")
+            susp_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+            bold_f = QFont("Segoe UI", 7)
+            bold_f.setBold(True)
+            susp_item.setFont(bold_f)
+            if is_suspended_val:
+                susp_item.setForeground(QColor("#92400e"))
+                susp_item.setBackground(QColor("#fef3c7"))
+            else:
+                susp_item.setForeground(QColor("#14532d"))
+                susp_item.setBackground(QColor("#dcfce7"))
+            table.setItem(row_index, 39, susp_item)
+
             # 3) Colonne statut (col 33) + flag de couleur pour le délégué
             statut_db = (row[24] or "").strip() if len(row) > 24 else ""
             if not statut_db:
@@ -998,6 +1028,10 @@ class HomeWidget(QWidget):
 
         # Ajuste automatiquement la largeur des colonnes comme dans les autres onglets
         table.resizeColumnsToContents()
+
+        # Déplace visuellement la colonne STATUT (logique 33) en première position
+        header = table.horizontalHeader()
+        header.moveSection(header.visualIndex(33), 0)
 
     # ------------------------------------------------------------------
     # Synchronisation tableau <-> formulaire
@@ -1451,3 +1485,8 @@ class HomeWidget(QWidget):
 
         # Notifie les autres onglets qu'une modification a eu lieu
         get_data_bus().data_changed.emit()
+
+    # ------------------------------------------------------------------
+    # Suspension d'entreprise
+    # ------------------------------------------------------------------
+

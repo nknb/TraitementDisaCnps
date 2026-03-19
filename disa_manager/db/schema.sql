@@ -1,5 +1,11 @@
 PRAGMA foreign_keys = ON;
 
+-- Table de versioning du schéma (migrations numérotées)
+CREATE TABLE IF NOT EXISTS schema_version (
+    version  INTEGER PRIMARY KEY,
+    applied_at TEXT DEFAULT (datetime('now'))
+);
+
 -- Table des utilisateurs pour la connexion à l'application
 CREATE TABLE IF NOT EXISTS utilisateurs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,6 +68,7 @@ CREATE TABLE IF NOT EXISTS traitement_disa (
     observations TEXT,
     statut TEXT,
     traite_par TEXT,
+    is_suspended INTEGER NOT NULL DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (employeur_id) REFERENCES identification_employeurs(id) ON DELETE CASCADE,

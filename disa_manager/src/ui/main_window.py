@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from PySide6.QtCore import QEvent, Qt
@@ -13,6 +14,8 @@ from .pages.traitement_widget import TraitementWidget
 from .pages.database_widget import EmployersDatabaseWidget
 from .pages.users_widget import UsersWidget
 from core.session import get_current_user
+
+logger = logging.getLogger(__name__)
 
 
 class MainWindow(QMainWindow):
@@ -58,8 +61,7 @@ class MainWindow(QMainWindow):
         try:
             self.setStyleSheet(qss_path.read_text(encoding="utf-8"))
         except Exception:
-            # En cas d'erreur de lecture ou de parsing du QSS, on ignore simplement.
-            pass
+            logger.exception("Erreur de chargement du fichier style.qss")
 
     def _apply_cnps_logo(self) -> None:
         """Remplace le logo R-Disa par le logo officiel CNPS dans la sidebar et la barre de titre."""
@@ -90,7 +92,7 @@ class MainWindow(QMainWindow):
             self.setWindowTitle("Traitement DiSA — CNPS")
 
         except AttributeError:
-            pass
+            logger.warning("Structure UI inattendue dans _apply_cnps_logo : attribut manquant")
 
     def _init_sidebar_state(self) -> None:
         """Corrige l'état initial du sidebar (plein vs réduit)."""
@@ -101,15 +103,14 @@ class MainWindow(QMainWindow):
             self.ui.icon_only_widget.hide()
             self.ui.change_btn.setChecked(False)
         except AttributeError:
-            # Si la structure change dans le futur, on évite de casser l'appli.
-            pass
+            logger.warning("Structure UI inattendue dans _init_sidebar_state")
 
         # Masque le champ de recherche global de la barre latérale
         try:
             self.ui.search_input.hide()
             self.ui.search_btn.hide()
         except AttributeError:
-            pass
+            logger.debug("Champs search_input/search_btn absents du layout")
 
     def _setup_home_page(self) -> None:
         """Remplace la page Home par l'interface définie dans home_ui."""
@@ -253,9 +254,9 @@ class MainWindow(QMainWindow):
 
         # Boutons à masquer pour le rôle "agent"
         restricted_buttons = [
-            "orders_btn_1", "orders_btn_2",      # Traitement
-            "products_btn_1", "products_btn_2",   # Base de données
-            "customers_btn_1", "customers_btn_2", # Assurés / Utilisateurs
+            "traitement_btn_1", "traitement_btn_2",      # Traitement
+            "database_btn_1", "database_btn_2",   # Base de données
+            "users_btn_1", "users_btn_2", # Assurés / Utilisateurs
         ]
         try:
             for btn_name in restricted_buttons:
@@ -263,14 +264,14 @@ class MainWindow(QMainWindow):
                 if btn is not None:
                     btn.hide()
         except Exception:
-            pass
+            logger.exception("Erreur dans _apply_role_restrictions")
 
         # S'assurer que la page affichée par défaut est l'Accueil
         try:
             self.ui.stackedWidget.setCurrentWidget(self.ui.page)
             self.ui.home_btn_2.setChecked(True)
         except AttributeError:
-            pass
+            logger.warning("Impossible de définir la page par défaut pour le rôle agent")
 
     def eventFilter(self, obj, event):  # type: ignore[override]
         """Ajuste dynamiquement les polices du dashboard quand la fenêtre est redimensionnée."""
@@ -285,14 +286,14 @@ class MainWindow(QMainWindow):
                 ):
                     self.dashboard_chart.update_font_sizes(scale)
         except AttributeError:
-            pass
+            logger.debug("eventFilter: page_2 ou dashboard_chart indisponible")
 
         return super().eventFilter(obj, event)
 
     def _setup_navigation(self) -> None:
         """Relie les boutons de menu aux pages du stackedWidget."""
 
-        try:
+        try:  # noqa: SIM105  # structure UI générée — AttributeError possible en cas de changement
             # Accueil
             self.ui.home_btn_1.toggled.connect(
                 lambda checked: checked and self.ui.stackedWidget.setCurrentWidget(self.ui.page)
@@ -310,28 +311,30 @@ class MainWindow(QMainWindow):
             )
 
             # Traitement (réutilise l'onglet "Orders")
-            self.ui.orders_btn_1.toggled.connect(
+            self.ui.traitement_btn_1.toggled.connect(
                 lambda checked: checked and self.ui.stackedWidget.setCurrentWidget(self.ui.page_3)
             )
-            self.ui.orders_btn_2.toggled.connect(
+            self.ui.traitement_btn_2.toggled.connect(
                 lambda checked: checked and self.ui.stackedWidget.setCurrentWidget(self.ui.page_3)
             )
 
             # Base de données (employeurs) sur page_4
-            self.ui.products_btn_1.toggled.connect(
+            self.ui.database_btn_1.toggled.connect(
                 lambda checked: checked and self.ui.stackedWidget.setCurrentWidget(self.ui.page_4)
             )
-            self.ui.products_btn_2.toggled.connect(
+            self.ui.database_btn_2.toggled.connect(
                 lambda checked: checked and self.ui.stackedWidget.setCurrentWidget(self.ui.page_4)
             )
 
             # Assurés / Utilisateurs sur page_5
-            self.ui.customers_btn_1.toggled.connect(
+            self.ui.users_btn_1.toggled.connect(
                 lambda checked: checked and self.ui.stackedWidget.setCurrentWidget(self.ui.page_5)
             )
-            self.ui.customers_btn_2.toggled.connect(
+            self.ui.users_btn_2.toggled.connect(
                 lambda checked: checked and self.ui.stackedWidget.setCurrentWidget(self.ui.page_5)
             )
+            # Marquer le bouton Accueil comme actif au démarrage
+            self.ui.home_btn_2.setChecked(True)
+
         except AttributeError:
-            # Si la structure du UI change un jour, on évite de tout casser.
-            pass
+            logger.exception("_setup_navigation : bouton de navigation manquant dans le UI")

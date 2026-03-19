@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable
 from typing import Any
 
 from db.connection import get_connection
+
+logger = logging.getLogger(__name__)
+
+# Tables autorisées pour l'import (whitelist contre injection SQL sur table_name)
+_ALLOWED_TABLES = {"identification_employeurs", "traitement_disa", "utilisateurs"}
 
 
 class ImportResult:
@@ -22,19 +28,21 @@ def insert_rows(
     table_name: str,
     db_columns: list[str],
     rows: Iterable[Iterable[Any]],
+    atomic: bool = False,
 ) -> ImportResult:
     """Insère une série de lignes dans une table SQLite.
 
-    - ``table_name`` : nom de la table cible
+    - ``table_name`` : nom de la table cible (doit être dans _ALLOWED_TABLES)
     - ``db_columns`` : liste des colonnes de la table à renseigner
     - ``rows`` : itérable de séquences de valeurs (même longueur que ``db_columns``)
-
-    La fonction essaie d'insérer chaque ligne individuellement pour pouvoir
-    continuer en cas d'erreur et renvoie le nombre de lignes insérées et d'erreurs.
+    - ``atomic`` : si True, toutes les lignes ou aucune (rollback sur la première erreur).
+                   Si False (défaut), continue ligne par ligne et rapporte les erreurs.
     """
 
     if not table_name:
         raise ValueError("table_name manquant")
+    if table_name not in _ALLOWED_TABLES:
+        raise ValueError(f"Table non autorisée pour l'import : {table_name!r}")
     if not db_columns:
         raise ValueError("Aucune colonne de base de données à insérer")
 
@@ -47,16 +55,33 @@ def insert_rows(
     error_messages: list[str] = []
 
     conn = get_connection()
-    with conn:
-        cur = conn.cursor()
-        for row in rows:
-            try:
+
+    if atomic:
+        # Mode tout-ou-rien : une seule transaction, rollback au moindre problème
+        with conn:
+            cur = conn.cursor()
+            for row in rows:
                 cur.execute(sql, tuple(row))
                 inserted += 1
-            except Exception as exc:  # pragma: no cover - dépend du schéma
-                errors += 1
-                # On garde les premiers messages d'erreur seulement pour l'UI
-                if len(error_messages) < 20:
-                    error_messages.append(str(exc))
+        logger.info("Import atomique terminé : %d lignes insérées dans %s", inserted, table_name)
+    else:
+        # Mode tolérant aux erreurs : chaque ligne dans son propre savepoint
+        with conn:
+            cur = conn.cursor()
+            for row in rows:
+                try:
+                    cur.execute(sql, tuple(row))
+                    inserted += 1
+                except Exception as exc:
+                    errors += 1
+                    if len(error_messages) < 20:
+                        error_messages.append(str(exc))
+                    logger.debug("Erreur ligne %d dans %s : %s", inserted + errors, table_name, exc)
+        if errors:
+            logger.warning(
+                "Import partiel dans %s : %d insérées, %d erreurs", table_name, inserted, errors
+            )
+        else:
+            logger.info("Import terminé : %d lignes insérées dans %s", inserted, table_name)
 
     return ImportResult(inserted=inserted, errors=errors, error_messages=error_messages)

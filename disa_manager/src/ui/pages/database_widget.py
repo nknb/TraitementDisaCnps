@@ -61,6 +61,18 @@ _STYLE_BTN_EXPORT = (
     "QPushButton:hover { background-color: #0284c7; }"
     "QPushButton:pressed { background-color: #075985; }"
 )
+_STYLE_BTN_SUSPEND = (
+    "QPushButton { background-color: #92400e; color: white; border-radius: 5px; "
+    "padding: 6px 14px; font-weight: 600; font-size: 12px; }"
+    "QPushButton:hover { background-color: #b45309; }"
+    "QPushButton:pressed { background-color: #78350f; }"
+)
+_STYLE_BTN_REACTIVATE = (
+    "QPushButton { background-color: #15803d; color: white; border-radius: 5px; "
+    "padding: 6px 14px; font-weight: 600; font-size: 12px; }"
+    "QPushButton:hover { background-color: #16a34a; }"
+    "QPushButton:pressed { background-color: #14532d; }"
+)
 _STYLE_INPUT = (
     "QLineEdit { border: 1px solid #d1d5db; border-radius: 4px; padding: 5px 8px; "
     "font-size: 12px; background: white; color: #1f2937; }"
@@ -195,6 +207,7 @@ class EmployersDatabaseWidget(QWidget):
         self._page_size: int = 50
         self._current_page: int = 1
         self._total_rows: int = 0
+        self._needs_refresh: bool = False
 
         self._build_ui()
         self._init_table_combo()
@@ -203,6 +216,13 @@ class EmployersDatabaseWidget(QWidget):
         self._refresh_table()
 
         get_data_bus().data_changed.connect(self._refresh_table)
+        self.table.itemSelectionChanged.connect(self._update_suspend_button)
+
+    def showEvent(self, event) -> None:  # type: ignore[override]
+        """Rafraîchit les données si une mise à jour a eu lieu pendant que le widget était caché."""
+        super().showEvent(event)
+        if self._needs_refresh:
+            self._refresh_table()
 
     # ------------------------------------------------------------------
     # Construction de l'UI
@@ -372,9 +392,18 @@ class EmployersDatabaseWidget(QWidget):
         self.secteur_combo.setFixedHeight(30)
         self.secteur_combo.currentIndexChanged.connect(self._on_filters_changed)
 
+        self.suspension_combo = QComboBox()
+        self.suspension_combo.setStyleSheet(_STYLE_COMBO)
+        self.suspension_combo.setFixedHeight(30)
+        self.suspension_combo.addItem("Toutes les entreprises", None)
+        self.suspension_combo.addItem("⛔  Suspendues", 1)
+        self.suspension_combo.addItem("✔  Actives", 0)
+        self.suspension_combo.currentIndexChanged.connect(self._on_filters_changed)
+
         combos_row.addLayout(_field_col("LOCALITÉ", self.localite_combo), 2)
         combos_row.addLayout(_field_col("EXERCICE", self.exercice_combo), 1)
         combos_row.addLayout(_field_col("STATUT", self.secteur_combo), 2)
+        combos_row.addLayout(_field_col("SUSPENSION", self.suspension_combo), 2)
 
         # ── Sélecteurs de date ──────────────────────────────────────────
         _DATE_SENTINEL = QDate(2000, 1, 1)
@@ -462,6 +491,12 @@ class EmployersDatabaseWidget(QWidget):
         self.delete_btn.clicked.connect(self._on_delete_clicked)
         actions_row.addWidget(self.delete_btn)
 
+        self.suspend_btn = _make_btn("⛔  Suspendre", _STYLE_BTN_SUSPEND)
+        self.suspend_btn.setFixedHeight(32)
+        self.suspend_btn.setToolTip("Suspendre ou réactiver l'entreprise sélectionnée")
+        self.suspend_btn.clicked.connect(self._on_toggle_suspension_clicked)
+        actions_row.addWidget(self.suspend_btn)
+
         actions_row.addWidget(_make_separator())
 
         self.refresh_btn = _make_btn("↻  Actualiser", _STYLE_BTN_NEUTRAL, ":/icon/icon/dashboard-5-32.ico")
@@ -546,6 +581,7 @@ class EmployersDatabaseWidget(QWidget):
         for w in (
             self.search_edit, self.date_from_edit, self.date_to_edit,
             self.localite_combo, self.exercice_combo, self.secteur_combo,
+            self.suspension_combo,
         ):
             w.blockSignals(True)
 
@@ -555,10 +591,12 @@ class EmployersDatabaseWidget(QWidget):
         self.localite_combo.setCurrentIndex(0)
         self.exercice_combo.setCurrentIndex(0)
         self.secteur_combo.setCurrentIndex(0)
+        self.suspension_combo.setCurrentIndex(0)
 
         for w in (
             self.search_edit, self.date_from_edit, self.date_to_edit,
             self.localite_combo, self.exercice_combo, self.secteur_combo,
+            self.suspension_combo,
         ):
             w.blockSignals(False)
 
@@ -578,6 +616,8 @@ class EmployersDatabaseWidget(QWidget):
             active.append(("Exercice", self.exercice_combo.currentText()))
         if self.secteur_combo.currentData() is not None:
             active.append(("Statut", self.secteur_combo.currentText()))
+        if self.suspension_combo.currentData() is not None:
+            active.append(("Suspension", self.suspension_combo.currentText()))
 
         date_from = self.date_from_edit.date()
         date_to = self.date_to_edit.date()
@@ -887,6 +927,16 @@ class EmployersDatabaseWidget(QWidget):
                 clauses.append("td.date_de_reception >= ?"); params.append(date_from)
             elif date_to:
                 clauses.append("td.date_de_reception <= ?"); params.append(date_to)
+            # Filtre suspension (commun à la vue jointe)
+            susp_val = self.suspension_combo.currentData()
+            if susp_val is not None:
+                clauses.append("COALESCE(td.is_suspended, 0) = ?"); params.append(int(susp_val))
+
+        # Filtre suspension pour les autres tables
+        if self._table_name == "traitement_disa":
+            susp_val = self.suspension_combo.currentData()
+            if susp_val is not None:
+                clauses.append("COALESCE(is_suspended, 0) = ?"); params.append(int(susp_val))
 
         where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
         return where, params
@@ -915,7 +965,12 @@ class EmployersDatabaseWidget(QWidget):
                 if name == "id":
                     continue
                 alias = "statut" if name == "statut" else (f"{name}_disa" if name in duplicates else name)
-                expr = "COALESCE(td.statut, 'NON TRAITÉ')" if name == "statut" else f"td.{name}"
+                if name == "statut":
+                    expr = "COALESCE(td.statut, 'NON TRAITÉ')"
+                elif name == "is_suspended":
+                    expr = "COALESCE(td.is_suspended, 0)"
+                else:
+                    expr = f"td.{name}"
                 parts.append(f"{expr} AS {alias}")
             return "SELECT " + ", ".join(parts) + base_from + where + extra
         else:
@@ -930,6 +985,12 @@ class EmployersDatabaseWidget(QWidget):
     def _refresh_table(self) -> None:
         if not self._columns:
             return
+        # Ne pas recharger si le widget n'est pas affiché (évite de bloquer le thread
+        # principal lors du polling data_changed toutes les 4 s)
+        if not self.isVisible():
+            self._needs_refresh = True
+            return
+        self._needs_refresh = False
 
         where, params = self._build_filters_sql()
 
@@ -1002,12 +1063,18 @@ class EmployersDatabaseWidget(QWidget):
             if self._table_name in ("traitement_disa", "join_employeur_traitement") and "statut" in self._columns
             else -1
         )
+        suspended_col_index = (
+            self._columns.index("is_suspended")
+            if "is_suspended" in self._columns
+            else -1
+        )
 
         for row_index, row in enumerate(rows):
             bg_color = None
             fg_color = QColor("white")
             etat_text = ""
             etat_icon: QIcon | None = None
+            is_suspended_val = False
 
             if statut_col_index != -1:
                 try:
@@ -1030,12 +1097,29 @@ class EmployersDatabaseWidget(QWidget):
                 else:
                     etat_text = row_statut
 
+            if suspended_col_index != -1:
+                try:
+                    is_suspended_val = bool(int(row[suspended_col_index] or 0))
+                except (TypeError, ValueError):
+                    is_suspended_val = False
+
             for col_index, value in enumerate(row):
-                text = "" if value is None else str(value)
+                # Afficher "Oui"/"Non" pour la colonne is_suspended
+                if col_index == suspended_col_index:
+                    text = "Oui" if bool(int(value or 0)) else "Non"
+                else:
+                    text = "" if value is None else str(value)
                 item = QTableWidgetItem(text)
                 if self._id_index != -1 and col_index == self._id_index:
                     item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                if bg_color is not None and statut_col_index != -1:
+                if col_index == suspended_col_index:
+                    item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                    if is_suspended_val:
+                        item.setForeground(QColor("#b45309"))
+                        item.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+                    else:
+                        item.setForeground(QColor("#15803d"))
+                elif bg_color is not None and statut_col_index != -1:
                     item.setBackground(bg_color)
                     item.setForeground(fg_color)
                 self.table.setItem(row_index, col_index, item)
@@ -1049,6 +1133,8 @@ class EmployersDatabaseWidget(QWidget):
                     etat_item.setForeground(fg_color)
                 self.table.setItem(row_index, len(self._columns), etat_item)
 
+        # Mettre à jour le bouton Suspendre selon la ligne sélectionnée
+        self._update_suspend_button()
         self.table.resizeColumnsToContents()
 
         total_pages = max(1, (self._total_rows + self._page_size - 1) // self._page_size)
@@ -1410,6 +1496,120 @@ class EmployersDatabaseWidget(QWidget):
             except Exception as exc:
                 QMessageBox.critical(self, "Erreur base de données", str(exc)); return
             self._load_filters(); self._refresh_table()
+
+    # ------------------------------------------------------------------
+    # Suspension d'entreprise
+    # ------------------------------------------------------------------
+
+    def _get_current_suspension_state(self) -> Optional[bool]:
+        """Retourne True si l'entreprise sélectionnée est suspendue, False sinon,
+        None si aucune ligne sélectionnée ou pas de fiche traitement DISA associée."""
+        if self._table_name not in ("join_employeur_traitement", "traitement_disa"):
+            return None
+        if "is_suspended" not in self._columns:
+            return None
+        row = self.table.currentRow()
+        if row < 0:
+            return None
+
+        # Vérifier qu'un traitement DISA existe pour cette ligne
+        # (LEFT JOIN peut retourner NULL pour td.id si l'employeur n'a pas de fiche)
+        if "id_traitement" in self._columns:
+            id_col = self._columns.index("id_traitement")
+            id_item = self.table.item(row, id_col)
+            if id_item is None or not id_item.text().strip():
+                return None  # Pas de fiche traitement → suspension impossible
+
+        col_idx = self._columns.index("is_suspended")
+        item = self.table.item(row, col_idx)
+        if item is None:
+            return None
+        # La cellule affiche "Oui"/"Non"
+        return item.text().strip().lower() == "oui"
+
+    def _update_suspend_button(self) -> None:
+        """Met à jour le libellé et le style du bouton selon l'état de suspension."""
+        state = self._get_current_suspension_state()
+        if state is None:
+            self.suspend_btn.setText("⛔  Suspendre")
+            self.suspend_btn.setStyleSheet(_STYLE_BTN_SUSPEND)
+        elif state:
+            # Déjà suspendue → proposer de réactiver
+            self.suspend_btn.setText("✔  Réactiver")
+            self.suspend_btn.setStyleSheet(_STYLE_BTN_REACTIVATE)
+        else:
+            self.suspend_btn.setText("⛔  Suspendre")
+            self.suspend_btn.setStyleSheet(_STYLE_BTN_SUSPEND)
+
+    def _on_toggle_suspension_clicked(self) -> None:
+        """Bascule l'état is_suspended de l'entreprise sélectionnée."""
+        if self._table_name not in ("join_employeur_traitement", "traitement_disa"):
+            QMessageBox.information(
+                self, "Suspension",
+                "La suspension n'est disponible que sur la vue Employeurs + DISA."
+            )
+            return
+
+        state = self._get_current_suspension_state()
+        if state is None:
+            QMessageBox.information(
+                self, "Suspension",
+                "Cette entreprise n'a pas encore de fiche de traitement DISA.\n"
+                "Veuillez d'abord créer une fiche de traitement pour pouvoir la suspendre."
+            )
+            return
+
+        new_state = 0 if state else 1
+        label = "suspendre" if new_state else "réactiver"
+        label_past = "suspendue" if new_state else "réactivée"
+
+        # Récupérer l'id_traitement (colonne "id_traitement" dans la vue jointe)
+        traitement_id: Optional[int] = None
+        if "id_traitement" in self._columns:
+            col_idx = self._columns.index("id_traitement")
+            item = self.table.item(self.table.currentRow(), col_idx)
+            if item and item.text().strip():
+                try:
+                    traitement_id = int(item.text().strip())
+                except ValueError:
+                    pass
+
+        if traitement_id is None:
+            QMessageBox.warning(
+                self, "Suspension",
+                "Impossible de trouver l'identifiant du traitement DISA pour cette ligne."
+            )
+            return
+
+        reply = QMessageBox.question(
+            self, f"Confirmer — {label.capitalize()}",
+            f"Voulez-vous vraiment {label} cette entreprise ?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        try:
+            conn = get_connection()
+            with conn:
+                conn.execute(
+                    "UPDATE traitement_disa SET is_suspended = ?, updated_at = datetime('now') WHERE id = ?",
+                    (new_state, traitement_id),
+                )
+        except Exception as exc:
+            QMessageBox.critical(
+                self, "Erreur base de données",
+                f"Impossible de {label} l'entreprise :\n{exc}"
+            )
+            return
+
+        QMessageBox.information(
+            self, "Succès",
+            f"L'entreprise a bien été {label_past}."
+        )
+        self._refresh_table()
+        get_data_bus().data_changed.emit()
 
     def _on_delete_clicked(self) -> None:
         if not self._columns:

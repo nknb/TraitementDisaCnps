@@ -1,7 +1,9 @@
+import logging
 import sqlite3
 import sys
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
 
 if getattr(sys, "frozen", False):
     # Mode exécutable (PyInstaller) :
@@ -17,72 +19,135 @@ else:
     SCHEMA_PATH  = PROJECT_ROOT / "db"   / "schema.sql"
 
 
+# ---------------------------------------------------------------------------
+# Migrations numérotées
+# Chaque entrée : (numéro_version, description, liste de SQL à exécuter)
+# NE JAMAIS modifier une migration déjà appliquée — ajouter une nouvelle.
+# ---------------------------------------------------------------------------
+_MIGRATIONS: list[tuple[int, str, list[str]]] = [
+    (
+        1,
+        "Colonnes statut, actions_menees, traite_par, updated_at dans traitement_disa",
+        [
+            "ALTER TABLE traitement_disa ADD COLUMN statut TEXT",
+            """UPDATE traitement_disa
+               SET statut = CASE
+                   WHEN date_de_validation IS NOT NULL THEN 'TRAITÉ'
+                   ELSE 'NON TRAITÉ'
+               END
+               WHERE statut IS NULL""",
+            "ALTER TABLE traitement_disa ADD COLUMN actions_menees TEXT",
+            "ALTER TABLE traitement_disa ADD COLUMN traite_par TEXT",
+            "ALTER TABLE traitement_disa ADD COLUMN updated_at TEXT",
+            "UPDATE traitement_disa SET updated_at = created_at WHERE updated_at IS NULL",
+        ],
+    ),
+    (
+        2,
+        "Colonnes telephone_2, email_2, email_3 dans identification_employeurs",
+        [
+            "ALTER TABLE identification_employeurs ADD COLUMN telephone_2 TEXT",
+            "ALTER TABLE identification_employeurs ADD COLUMN email_2 TEXT",
+            "ALTER TABLE identification_employeurs ADD COLUMN email_3 TEXT",
+        ],
+    ),
+    (
+        3,
+        "Colonne is_suspended dans traitement_disa (suspension d'entreprise)",
+        [
+            "ALTER TABLE traitement_disa ADD COLUMN is_suspended INTEGER NOT NULL DEFAULT 0",
+        ],
+    ),
+]
+
+
+def _get_applied_versions(cur: sqlite3.Cursor) -> set[int]:
+    """Retourne l'ensemble des versions de migration déjà appliquées."""
+    cur.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_version'"
+    )
+    if not cur.fetchone():
+        return set()
+    cur.execute("SELECT version FROM schema_version")
+    return {row[0] for row in cur.fetchall()}
+
+
+def _column_exists(cur: sqlite3.Cursor, table: str, column: str) -> bool:
+    cur.execute(f"PRAGMA table_info({table})")
+    return any(row[1] == column for row in cur.fetchall())
+
+
+def _table_exists(cur: sqlite3.Cursor, table: str) -> bool:
+    cur.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)
+    )
+    return cur.fetchone() is not None
+
+
+def _apply_migrations(conn: sqlite3.Connection) -> None:
+    """Applique les migrations en attente de façon idempotente."""
+    cur = conn.cursor()
+    applied = _get_applied_versions(cur)
+
+    for version, description, statements in _MIGRATIONS:
+        if version in applied:
+            continue
+
+        logger.info("Application de la migration v%d : %s", version, description)
+        for stmt in statements:
+            # Extraire la première colonne citée dans un ALTER TABLE ADD COLUMN
+            # pour vérifier si elle existe déjà (idempotence).
+            stmt_stripped = stmt.strip().upper()
+            if stmt_stripped.startswith("ALTER TABLE") and "ADD COLUMN" in stmt_stripped:
+                parts = stmt.split()
+                # ALTER TABLE <table> ADD COLUMN <col> ...
+                try:
+                    tbl_idx = parts.index("TABLE") + 1
+                    col_idx = parts.index("COLUMN") + 1
+                    tbl = parts[tbl_idx]
+                    col = parts[col_idx]
+                    if _table_exists(cur, tbl) and _column_exists(cur, tbl, col):
+                        logger.debug("Colonne %s.%s déjà présente, saut", tbl, col)
+                        continue
+                except (ValueError, IndexError):
+                    pass
+
+            try:
+                cur.execute(stmt)
+            except sqlite3.OperationalError as exc:
+                # Certaines ALTER TABLE échouent si la colonne existe déjà
+                if "duplicate column name" in str(exc).lower():
+                    logger.debug("Migration v%d : colonne déjà présente (%s)", version, exc)
+                else:
+                    raise
+
+        cur.execute(
+            "INSERT OR IGNORE INTO schema_version (version) VALUES (?)", (version,)
+        )
+        logger.info("Migration v%d appliquée avec succès", version)
+
+    conn.commit()
+
+
 def init_db() -> None:
-    """Crée la base disa.db et la table utilisateurs avec admin et agent."""
+    """Crée la base disa.db, applique le schéma de base puis les migrations."""
 
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    logger.debug("Initialisation de la base : %s", DB_PATH)
 
-    with sqlite3.connect(DB_PATH) as conn:
-        cur = conn.cursor()
-
-        # Migration légère AVANT d'appliquer le nouveau schema.sql :
-        # 1) si la table traitement_disa existe déjà sans certaines colonnes, on les ajoute.
-        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='traitement_disa'")
-        if cur.fetchone():
-            cur.execute("PRAGMA table_info(traitement_disa)")
-            cols = [row[1] for row in cur.fetchall()]
-            if "statut" not in cols:
-                cur.execute("ALTER TABLE traitement_disa ADD COLUMN statut TEXT")
-                cur.execute(
-                    """
-                    UPDATE traitement_disa
-                    SET statut = CASE
-                        WHEN date_de_validation IS NOT NULL THEN 'TRAITÉ'
-                        ELSE 'NON TRAITÉ'
-                    END
-                    WHERE statut IS NULL
-                    """
-                )
-
-            # nouvelle colonne ACTIONS MENÉES (actions_menees)
-            if "actions_menees" not in cols:
-                cur.execute("ALTER TABLE traitement_disa ADD COLUMN actions_menees TEXT")
-
-            # nouvelle colonne TRAITÉ PAR (traite_par)
-            if "traite_par" not in cols:
-                cur.execute("ALTER TABLE traitement_disa ADD COLUMN traite_par TEXT")
-
-            # nouvelle colonne DATE DE MISE À JOUR (updated_at)
-            # Note : ALTER TABLE ne supporte pas datetime('now') comme défaut non constant
-            if "updated_at" not in cols:
-                cur.execute("ALTER TABLE traitement_disa ADD COLUMN updated_at TEXT")
-                cur.execute(
-                    "UPDATE traitement_disa SET updated_at = created_at WHERE updated_at IS NULL"
-                )
-
-        # 2) Migration pour la table identification_employeurs :
-        # ajout des colonnes telephone_2, email_2 et email_3 si elles n'existent pas encore.
-        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='identification_employeurs'")
-        if cur.fetchone():
-            cur.execute("PRAGMA table_info(identification_employeurs)")
-            emp_cols = [row[1] for row in cur.fetchall()]
-
-            if "telephone_2" not in emp_cols:
-                cur.execute("ALTER TABLE identification_employeurs ADD COLUMN telephone_2 TEXT")
-
-            if "email_2" not in emp_cols:
-                cur.execute("ALTER TABLE identification_employeurs ADD COLUMN email_2 TEXT")
-
-            if "email_3" not in emp_cols:
-                cur.execute("ALTER TABLE identification_employeurs ADD COLUMN email_3 TEXT")
-
-        # Puis on applique (ou ré-applique) le schéma complet
+    with sqlite3.connect(str(DB_PATH), timeout=10) as conn:
+        # 1) Appliquer le schéma de base (CREATE TABLE IF NOT EXISTS — idempotent)
         with SCHEMA_PATH.open("r", encoding="utf-8") as f:
-            sql = f.read()
-        conn.executescript(sql)
-            # Les données métier ne seront pas supprimées pour conserver les imports persistants
+            schema_sql = f.read()
+        conn.executescript(schema_sql)
+
+        # 2) Appliquer les migrations en attente
+        _apply_migrations(conn)
+
+    logger.info("Base de données prête : %s", DB_PATH)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
     init_db()
     print(f"Base initialisée : {DB_PATH}")

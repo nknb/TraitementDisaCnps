@@ -101,7 +101,7 @@ class _BuildingPanel(QWidget):
             p.fillRect(self.rect(), QBrush(grad))
 
         # Bandeau bas avec logo + nom agence
-        band_h = 64
+        band_h = 82
         band_grad = QLinearGradient(0, h - band_h, 0, h)
         band_grad.setColorAt(0.0, QColor(0, 31, 77, 0))
         band_grad.setColorAt(1.0, QColor(0, 31, 77, 220))
@@ -110,16 +110,23 @@ class _BuildingPanel(QWidget):
         p.setPen(QColor(255, 255, 255, 230))
         p.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
         p.drawText(
-            QRect(0, h - 42, w, 20),
+            QRect(0, h - 58, w, 20),
             Qt.AlignmentFlag.AlignCenter,
             "IPS-CNPS — Agence de Gagnoa",
         )
         p.setFont(QFont("Segoe UI", 8))
         p.setPen(QColor(255, 255, 255, 170))
         p.drawText(
-            QRect(0, h - 22, w, 18),
+            QRect(0, h - 38, w, 18),
             Qt.AlignmentFlag.AlignCenter,
             "Traitement DiSA",
+        )
+        p.setFont(QFont("Segoe UI", 7))
+        p.setPen(QColor(255, 255, 255, 120))
+        p.drawText(
+            QRect(0, h - 20, w, 16),
+            Qt.AlignmentFlag.AlignCenter,
+            "Créé par N'GUESSAN Kouakou N'goran Blanchard",
         )
 
 
