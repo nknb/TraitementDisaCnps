@@ -168,10 +168,10 @@ class ChartWidget:
             }}
             """
         )
-        frame.setMinimumHeight(90)
+        frame.setMinimumHeight(110)
         vbox = QVBoxLayout(frame)
         vbox.setContentsMargins(14, 10, 14, 10)
-        vbox.setSpacing(2)
+        vbox.setSpacing(4)
 
         lbl_title = QLabel(title.upper())
         lbl_title.setStyleSheet(
@@ -180,7 +180,8 @@ class ChartWidget:
         )
         lbl_value = QLabel(value)
         lbl_value.setStyleSheet(
-            f"color: {accent}; font-weight: 800; border: none; background: transparent;"
+            f"color: {accent}; font-size: 20px; font-weight: 800;"
+            " border: none; background: transparent;"
         )
         lbl_sub = QLabel(subtitle)
         lbl_sub.setStyleSheet(
@@ -192,7 +193,7 @@ class ChartWidget:
         vbox.addStretch(1)
 
         self._responsive_label_specs.extend([
-            (lbl_title, 9), (lbl_value, 24), (lbl_sub, 9),
+            (lbl_title, 9), (lbl_value, 18), (lbl_sub, 9),
         ])
         self._fade_in(frame, delay_ms)
         return frame

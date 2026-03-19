@@ -129,6 +129,34 @@ def _apply_migrations(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def _hash_plain_passwords(conn: sqlite3.Connection) -> None:
+    """Hache en SHA-256 tout mot de passe stocké en clair.
+
+    Un hash SHA-256 est une chaîne hexadécimale de 64 caractères exactement.
+    Tout mot de passe qui ne respecte pas ce format est considéré comme du
+    texte clair et est remplacé par son empreinte SHA-256.
+    """
+    import hashlib
+
+    cur = conn.cursor()
+    cur.execute("SELECT id, password FROM utilisateurs")
+    updates: list[tuple[str, int]] = []
+    for row_id, pwd in cur.fetchall():
+        pwd_str = str(pwd) if pwd is not None else ""
+        # Déjà haché : exactement 64 caractères hexadécimaux
+        if len(pwd_str) == 64 and all(c in "0123456789abcdef" for c in pwd_str.lower()):
+            continue
+        hashed = hashlib.sha256(pwd_str.encode("utf-8")).hexdigest()
+        updates.append((hashed, row_id))
+
+    if updates:
+        cur.executemany(
+            "UPDATE utilisateurs SET password = ? WHERE id = ?", updates
+        )
+        conn.commit()
+        logger.info("Sécurité : %d mot(s) de passe haché(s) en SHA-256", len(updates))
+
+
 def init_db() -> None:
     """Crée la base disa.db, applique le schéma de base puis les migrations."""
 
@@ -143,6 +171,9 @@ def init_db() -> None:
 
         # 2) Appliquer les migrations en attente
         _apply_migrations(conn)
+
+        # 3) Hacher les mots de passe en clair (sécurité — idempotent)
+        _hash_plain_passwords(conn)
 
     logger.info("Base de données prête : %s", DB_PATH)
 

@@ -3,7 +3,9 @@ from pathlib import Path
 
 from PySide6.QtCore import QEvent, Qt
 from PySide6.QtGui import QIcon, QPixmap
-from PySide6.QtWidgets import QMainWindow, QScrollArea, QWidget, QGridLayout, QFrame
+from PySide6.QtWidgets import (
+    QMainWindow, QScrollArea, QWidget, QGridLayout, QFrame, QLabel,
+)
 
 from .ui_sidebar import Ui_MainWindow
 from . import resource_rc  # noqa: F401  # importe les ressources (icônes)
@@ -14,6 +16,7 @@ from .pages.traitement_widget import TraitementWidget
 from .pages.database_widget import EmployersDatabaseWidget
 from .pages.users_widget import UsersWidget
 from core.session import get_current_user
+from core.network_monitor import get_network_monitor
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +48,7 @@ class MainWindow(QMainWindow):
         self._setup_users_page()
         self._setup_navigation()
         self._apply_role_restrictions()
+        self._setup_network_indicator()
         # Permet de rendre les polices du dashboard réactives au redimensionnement
         try:
             self.ui.page_2.installEventFilter(self)
@@ -289,6 +293,60 @@ class MainWindow(QMainWindow):
             logger.debug("eventFilter: page_2 ou dashboard_chart indisponible")
 
         return super().eventFilter(obj, event)
+
+    def _setup_network_indicator(self) -> None:
+        """Ajoute un indicateur de statut réseau discret dans la barre de titre."""
+        try:
+            self._net_indicator = QLabel("● Réseau OK", self)
+            self._net_indicator.setStyleSheet(
+                "QLabel { color: #22c55e; font-size: 11px; font-weight: 600;"
+                " background: transparent; padding: 2px 8px; }"
+            )
+            self._net_indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            # Injecter dans le header_widget s'il existe, sinon dans la status bar
+            try:
+                header = self.ui.header_widget
+                from PySide6.QtWidgets import QHBoxLayout
+                if header.layout():
+                    header.layout().addWidget(self._net_indicator)
+                else:
+                    lay = QHBoxLayout(header)
+                    lay.addWidget(self._net_indicator)
+            except AttributeError:
+                self.statusBar().addPermanentWidget(self._net_indicator)
+
+            # Connecter au moniteur réseau
+            monitor = get_network_monitor()
+            monitor.status_changed.connect(self._on_network_status_changed)
+
+        except Exception as e:
+            logger.debug("Indicateur réseau non disponible : %s", e)
+
+    def _on_network_status_changed(self, available: bool) -> None:
+        """Met à jour l'indicateur visuel et le titre de la fenêtre."""
+        try:
+            monitor = get_network_monitor()
+            pending = monitor.pending_writes
+            if available:
+                txt = "● Réseau OK"
+                if pending:
+                    txt += f"  ({pending} en attente)"
+                self._net_indicator.setText(txt)
+                self._net_indicator.setStyleSheet(
+                    "QLabel { color: #22c55e; font-size: 11px; font-weight: 600;"
+                    " background: transparent; padding: 2px 8px; }"
+                )
+                self.setWindowTitle("Traitement DiSA — CNPS")
+            else:
+                self._net_indicator.setText("⚠ Réseau indisponible — mode hors ligne")
+                self._net_indicator.setStyleSheet(
+                    "QLabel { color: #f59e0b; font-size: 11px; font-weight: 600;"
+                    " background: transparent; padding: 2px 8px; }"
+                )
+                self.setWindowTitle("Traitement DiSA — CNPS  [HORS LIGNE]")
+        except Exception:
+            pass
 
     def _setup_navigation(self) -> None:
         """Relie les boutons de menu aux pages du stackedWidget."""

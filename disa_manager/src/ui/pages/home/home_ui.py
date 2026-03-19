@@ -180,10 +180,16 @@ QTableWidget::item:hover {
         self.gridLayout_5.setVerticalSpacing(15)
         self.gridLayout_5.setObjectName("gridLayout_5")
         self.frame_3 = QtWidgets.QFrame(parent=Form)
-        self.frame_3.setFrameShape(QtWidgets.QFrame.Shape.StyledPanel)
-        self.frame_3.setFrameShadow(QtWidgets.QFrame.Shadow.Raised)
+        self.frame_3.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
         self.frame_3.setObjectName("frame_3")
+        self.frame_3.setStyleSheet(
+            "QFrame { background: qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+            "stop:0 #1e3a5f, stop:1 #2a4f80);"
+            "border-radius: 8px; }"
+        )
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout(self.frame_3)
+        self.horizontalLayout_2.setContentsMargins(20, 14, 20, 14)
+        self.horizontalLayout_2.setSpacing(16)
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
         self.title_label = QtWidgets.QLabel(parent=self.frame_3)
         font = QtGui.QFont()
@@ -191,12 +197,13 @@ QTableWidget::item:hover {
         font.setPointSize(14)
         font.setBold(True)
         self.title_label.setFont(font)
-        self.title_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.title_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignVCenter | QtCore.Qt.AlignmentFlag.AlignLeft)
         self.title_label.setStyleSheet(
-            "color: #1e3a5f; letter-spacing: 1px; padding: 6px 0;"
+            "color: white; background: transparent; letter-spacing: 1px;"
         )
         self.title_label.setObjectName("title_label")
         self.horizontalLayout_2.addWidget(self.title_label)
+        self.horizontalLayout_2.addStretch(1)
         self.gridLayout_5.addWidget(self.frame_3, 0, 0, 1, 1)
         self.function_frame = QtWidgets.QFrame(parent=Form)
         self.function_frame.setFrameShape(QtWidgets.QFrame.Shape.StyledPanel)

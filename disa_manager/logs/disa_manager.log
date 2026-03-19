@@ -492,3 +492,32 @@
 2026-03-19 11:25:32,390 [DEBUG] db.init_db: Initialisation de la base : /Users/blanchard/Documents/Projets/TraitementDisaCnps/disa_manager/data/disa.db
 2026-03-19 11:25:32,391 [INFO] db.init_db: Base de données prête : /Users/blanchard/Documents/Projets/TraitementDisaCnps/disa_manager/data/disa.db
 2026-03-19 11:25:40,112 [INFO] __main__: Fenêtre principale ouverte
+2026-03-19 12:31:53,781 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-19 12:31:54,119 [DEBUG] db.init_db: Initialisation de la base : C:\Users\m9700\OneDrive - CNPS Caisse Nationale de Prévoyance Sociale\Documents\PROJET\TraitementDisaCnps\disa_manager\data\disa.db
+2026-03-19 12:31:54,197 [INFO] db.init_db: Sécurité : 3 mot(s) de passe haché(s) en SHA-256
+2026-03-19 12:31:54,199 [INFO] db.init_db: Base de données prête : C:\Users\m9700\OneDrive - CNPS Caisse Nationale de Prévoyance Sociale\Documents\PROJET\TraitementDisaCnps\disa_manager\data\disa.db
+2026-03-19 12:32:11,200 [INFO] __main__: Fenêtre principale ouverte
+2026-03-19 12:40:30,786 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-19 12:40:30,981 [DEBUG] db.init_db: Initialisation de la base : C:\Users\m9700\OneDrive - CNPS Caisse Nationale de Prévoyance Sociale\Documents\PROJET\TraitementDisaCnps\disa_manager\data\disa.db
+2026-03-19 12:40:31,020 [INFO] db.init_db: Base de données prête : C:\Users\m9700\OneDrive - CNPS Caisse Nationale de Prévoyance Sociale\Documents\PROJET\TraitementDisaCnps\disa_manager\data\disa.db
+2026-03-19 12:40:42,178 [INFO] __main__: Fenêtre principale ouverte
+2026-03-19 12:48:59,845 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-19 12:49:00,107 [DEBUG] db.init_db: Initialisation de la base : C:\Users\m9700\OneDrive - CNPS Caisse Nationale de Prévoyance Sociale\Documents\PROJET\TraitementDisaCnps\disa_manager\data\disa.db
+2026-03-19 12:49:00,164 [INFO] db.init_db: Base de données prête : C:\Users\m9700\OneDrive - CNPS Caisse Nationale de Prévoyance Sociale\Documents\PROJET\TraitementDisaCnps\disa_manager\data\disa.db
+2026-03-19 12:49:14,640 [INFO] __main__: Fenêtre principale ouverte
+2026-03-19 12:54:17,834 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-19 12:54:18,130 [DEBUG] db.init_db: Initialisation de la base : C:\Users\m9700\OneDrive - CNPS Caisse Nationale de Prévoyance Sociale\Documents\PROJET\TraitementDisaCnps\disa_manager\data\disa.db
+2026-03-19 12:54:18,174 [INFO] db.init_db: Base de données prête : C:\Users\m9700\OneDrive - CNPS Caisse Nationale de Prévoyance Sociale\Documents\PROJET\TraitementDisaCnps\disa_manager\data\disa.db
+2026-03-19 12:54:34,927 [INFO] __main__: Fenêtre principale ouverte
+2026-03-19 13:38:01,907 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-19 13:38:02,287 [DEBUG] db.init_db: Initialisation de la base : C:\Users\m9700\OneDrive - CNPS Caisse Nationale de Prévoyance Sociale\Documents\PROJET\TraitementDisaCnps\disa_manager\data\disa.db
+2026-03-19 13:38:02,359 [INFO] db.init_db: Base de données prête : C:\Users\m9700\OneDrive - CNPS Caisse Nationale de Prévoyance Sociale\Documents\PROJET\TraitementDisaCnps\disa_manager\data\disa.db
+2026-03-19 13:38:24,814 [INFO] __main__: Fenêtre principale ouverte
+2026-03-19 13:42:19,881 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-19 13:42:20,185 [DEBUG] db.init_db: Initialisation de la base : C:\Users\m9700\OneDrive - CNPS Caisse Nationale de Prévoyance Sociale\Documents\PROJET\TraitementDisaCnps\disa_manager\data\disa.db
+2026-03-19 13:42:20,231 [INFO] db.init_db: Base de données prête : C:\Users\m9700\OneDrive - CNPS Caisse Nationale de Prévoyance Sociale\Documents\PROJET\TraitementDisaCnps\disa_manager\data\disa.db
+2026-03-19 13:42:40,181 [INFO] __main__: Fenêtre principale ouverte
+2026-03-19 13:51:23,167 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-19 13:51:23,517 [DEBUG] db.init_db: Initialisation de la base : C:\Users\m9700\OneDrive - CNPS Caisse Nationale de Prévoyance Sociale\Documents\PROJET\TraitementDisaCnps\disa_manager\data\disa.db
+2026-03-19 13:51:23,630 [INFO] db.init_db: Base de données prête : C:\Users\m9700\OneDrive - CNPS Caisse Nationale de Prévoyance Sociale\Documents\PROJET\TraitementDisaCnps\disa_manager\data\disa.db
+2026-03-19 13:51:35,280 [INFO] __main__: Fenêtre principale ouverte

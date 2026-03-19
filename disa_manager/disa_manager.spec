@@ -5,6 +5,7 @@
 # ============================================================
 
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+import os
 
 block_cipher = None
 
@@ -30,11 +31,14 @@ datas += collect_data_files("openpyxl")
 
 # ---------- Imports cachés (non détectés automatiquement) ----------
 hiddenimports = [
-    # PySide6
+    # PySide6 — widgets & graphiques
     "PySide6.QtCore",
     "PySide6.QtGui",
     "PySide6.QtWidgets",
     "PySide6.QtSql",
+    "PySide6.QtCharts",          # ← dashboard (graphiques en barres, camembert)
+    "PySide6.QtOpenGL",          # ← requis par QtCharts en arrière-plan
+    "PySide6.QtOpenGLWidgets",
 
     # pandas / numpy (sous-modules souvent manquants)
     *collect_submodules("pandas"),
@@ -43,7 +47,15 @@ hiddenimports = [
 
     # openpyxl
     *collect_submodules("openpyxl"),
+
+    # hashlib (hachage mots de passe — toujours présent mais déclaration explicite)
+    "hashlib",
+    "_hashlib",
 ]
+
+# Icône Windows (.ico généré par make_icon.py)
+_icon_path = "src/ui/images/cnps_logo.ico"
+_icon = _icon_path if os.path.exists(_icon_path) else None
 
 # ---------- Analyse ----------
 a = Analysis(
@@ -75,9 +87,12 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=False,                      # UPX désactivé : évite les faux positifs antivirus Windows
+    upx=False,                      # UPX désactivé : évite les faux positifs antivirus
     console=False,                  # pas de fenêtre console noire
-    icon=None,                      # remplacer par "src/ui/images/cnps_logo.ico" si disponible
+    icon=_icon,                     # icône .ico générée par make_icon.py
+    version="version_info.txt",     # métadonnées Windows (Propriétés → Détails)
+    uac_admin=False,                # pas d'élévation UAC nécessaire
+    uac_uiaccess=False,
 )
 
 coll = COLLECT(
@@ -86,7 +101,7 @@ coll = COLLECT(
     a.zipfiles,
     a.datas,
     strip=False,
-    upx=False,                      # UPX désactivé : évite les faux positifs antivirus Windows
+    upx=False,
     upx_exclude=[],
     name="DisaManager",             # -> dist/DisaManager/
 )

@@ -241,12 +241,16 @@ class LoginDialog(QDialog):
 
     def handle_login(self) -> None:
         """Valide les identifiants via la base SQLite."""
+        import hashlib
+
         username = self.username_edit.text().strip()
         password = self.password_edit.text().strip()
 
         if not username or not password:
             self.info_label.setText("Veuillez renseigner les deux champs.")
             return
+
+        password_hash = hashlib.sha256(password.encode("utf-8")).hexdigest()
 
         try:
             with get_connection() as conn:
@@ -259,7 +263,7 @@ class LoginDialog(QDialog):
             self.info_label.setText(f"Erreur base de données : {exc}")
             return
 
-        if row is None or row["password"] != password:
+        if row is None or row["password"] != password_hash:
             self.info_label.setText("Identifiants incorrects.")
             self.password_edit.clear()
             self.password_edit.setFocus()

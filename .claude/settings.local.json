@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python make_icon.py)",
+      "Bash(pyinstaller disa_manager.spec --noconfirm --clean)"
+    ]
+  }
+}

@@ -23,9 +23,10 @@ class _DataBus(QObject):
         super().__init__()
         self._last_signature: str | None = None
 
-        # Démarre le polling inter-processus (4 secondes)
+        # Démarre le polling inter-processus (10 secondes)
+        # Intervalle plus long = moins de connexions simultanées sur la base réseau
         self._poll_timer = QTimer(self)
-        self._poll_timer.setInterval(4_000)
+        self._poll_timer.setInterval(10_000)
         self._poll_timer.timeout.connect(self._poll_db_changes)
         self._poll_timer.start()
 

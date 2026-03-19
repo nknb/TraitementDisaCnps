@@ -217,6 +217,8 @@ class EmployersDatabaseWidget(QWidget):
 
         get_data_bus().data_changed.connect(self._refresh_table)
         self.table.itemSelectionChanged.connect(self._update_suspend_button)
+        self.table.itemChanged.connect(self._on_checkbox_changed)
+        self.table.horizontalHeader().sectionClicked.connect(self._on_header_section_clicked)
 
     def showEvent(self, event) -> None:  # type: ignore[override]
         """Rafraîchit les données si une mise à jour a eu lieu pendant que le widget était caché."""
@@ -488,6 +490,7 @@ class EmployersDatabaseWidget(QWidget):
 
         self.delete_btn = _make_btn("✕  Supprimer", _STYLE_BTN_DANGER, ":/icon/icon/close-window-64.ico")
         self.delete_btn.setFixedHeight(32)
+        self.delete_btn.setEnabled(False)  # Activé uniquement quand des cases sont cochées
         self.delete_btn.clicked.connect(self._on_delete_clicked)
         actions_row.addWidget(self.delete_btn)
 
@@ -520,7 +523,7 @@ class EmployersDatabaseWidget(QWidget):
         self.table = QTableWidget(self)
         self.table.setSortingEnabled(True)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.table.setSelectionMode(QTableWidget.SelectionMode.ExtendedSelection)
         self.table.setAlternatingRowColors(True)
         self.table.setStyleSheet(_STYLE_TABLE)
         self.table.verticalHeader().setDefaultSectionSize(30)
@@ -733,16 +736,20 @@ class EmployersDatabaseWidget(QWidget):
             self._columns = [r[1] for r in rows]
 
         if self._table_name in ("traitement_disa", "join_employeur_traitement"):
-            headers = list(self._columns) + ["État"]
-            self.table.setColumnCount(len(headers))
-            self.table.setHorizontalHeaderLabels(headers)
+            headers = ["☑"] + list(self._columns) + ["État"]
         else:
-            self.table.setColumnCount(len(self._columns))
-            self.table.setHorizontalHeaderLabels(self._columns)
+            headers = ["☑"] + list(self._columns)
+        self.table.setColumnCount(len(headers))
+        self.table.setHorizontalHeaderLabels(headers)
+
+        # Colonne 0 = cases à cocher (largeur fixe)
+        self.table.setColumnWidth(0, 36)
+        from PySide6.QtWidgets import QHeaderView as _HV
+        self.table.horizontalHeader().setSectionResizeMode(0, _HV.ResizeMode.Fixed)
 
         if "id" in self._columns:
             self._id_index = self._columns.index("id")
-            self.table.setColumnHidden(self._id_index, True)
+            self.table.setColumnHidden(self._id_index + 1, True)  # +1 : offset checkbox
 
     def _load_filters(self) -> None:
         self.localite_combo.blockSignals(True)
@@ -1103,6 +1110,15 @@ class EmployersDatabaseWidget(QWidget):
                 except (TypeError, ValueError):
                     is_suspended_val = False
 
+            # Colonne 0 : case à cocher
+            cb_item = QTableWidgetItem()
+            cb_item.setFlags(
+                Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled
+            )
+            cb_item.setCheckState(Qt.CheckState.Unchecked)
+            cb_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.table.setItem(row_index, 0, cb_item)
+
             for col_index, value in enumerate(row):
                 # Afficher "Oui"/"Non" pour la colonne is_suspended
                 if col_index == suspended_col_index:
@@ -1110,6 +1126,7 @@ class EmployersDatabaseWidget(QWidget):
                 else:
                     text = "" if value is None else str(value)
                 item = QTableWidgetItem(text)
+                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 if self._id_index != -1 and col_index == self._id_index:
                     item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 if col_index == suspended_col_index:
@@ -1122,20 +1139,23 @@ class EmployersDatabaseWidget(QWidget):
                 elif bg_color is not None and statut_col_index != -1:
                     item.setBackground(bg_color)
                     item.setForeground(fg_color)
-                self.table.setItem(row_index, col_index, item)
+                self.table.setItem(row_index, col_index + 1, item)  # +1 : offset checkbox
 
             if self._table_name in ("traitement_disa", "join_employeur_traitement"):
                 etat_item = QTableWidgetItem(etat_text)
+                etat_item.setFlags(etat_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
                 if etat_icon is not None:
                     etat_item.setIcon(etat_icon)
                 if bg_color is not None:
                     etat_item.setBackground(bg_color)
                     etat_item.setForeground(fg_color)
-                self.table.setItem(row_index, len(self._columns), etat_item)
+                self.table.setItem(row_index, len(self._columns) + 1, etat_item)
 
         # Mettre à jour le bouton Suspendre selon la ligne sélectionnée
         self._update_suspend_button()
+        self._update_delete_btn_state()
         self.table.resizeColumnsToContents()
+        self.table.setColumnWidth(0, 36)  # Colonne checkbox — largeur fixe
 
         total_pages = max(1, (self._total_rows + self._page_size - 1) // self._page_size)
         self.page_label.setText(
@@ -1352,11 +1372,65 @@ class EmployersDatabaseWidget(QWidget):
     # Actions CRUD
     # ------------------------------------------------------------------
 
+    def _get_selected_ids(self) -> list[int]:
+        """Retourne les IDs de toutes les lignes dont la case est cochée."""
+        if self._table_name == "join_employeur_traitement":
+            if "id_employeur" not in self._columns:
+                return []
+            col_idx = self._columns.index("id_employeur") + 1  # +1 checkbox
+        elif self._id_index != -1:
+            col_idx = self._id_index + 1  # +1 checkbox
+        else:
+            return []
+        ids = []
+        for row in range(self.table.rowCount()):
+            cb = self.table.item(row, 0)
+            if cb and cb.checkState() == Qt.CheckState.Checked:
+                item = self.table.item(row, col_idx)
+                if item and item.text().strip():
+                    try:
+                        ids.append(int(item.text().strip()))
+                    except ValueError:
+                        pass
+        return ids
+
+    def _update_delete_btn_state(self) -> None:
+        """Active le bouton Supprimer seulement si au moins une case est cochée."""
+        has_checked = any(
+            self.table.item(r, 0) is not None
+            and self.table.item(r, 0).checkState() == Qt.CheckState.Checked
+            for r in range(self.table.rowCount())
+        )
+        self.delete_btn.setEnabled(has_checked)
+
+    def _on_checkbox_changed(self, item: QTableWidgetItem) -> None:
+        """Réagit au changement d'état d'une case à cocher."""
+        if item.column() == 0:
+            self._update_delete_btn_state()
+
+    def _on_header_section_clicked(self, col: int) -> None:
+        """Clic sur l'en-tête de la colonne 0 → cocher / décocher tout."""
+        if col != 0:
+            return
+        any_unchecked = any(
+            self.table.item(r, 0) is not None
+            and self.table.item(r, 0).checkState() == Qt.CheckState.Unchecked
+            for r in range(self.table.rowCount())
+        )
+        new_state = Qt.CheckState.Checked if any_unchecked else Qt.CheckState.Unchecked
+        self.table.blockSignals(True)
+        for r in range(self.table.rowCount()):
+            cb = self.table.item(r, 0)
+            if cb:
+                cb.setCheckState(new_state)
+        self.table.blockSignals(False)
+        self._update_delete_btn_state()
+
     def _get_selected_employeur_id(self) -> Optional[int]:
         row = self.table.currentRow()
         if row < 0 or "id_employeur" not in self._columns:
             return None
-        item = self.table.item(row, self._columns.index("id_employeur"))
+        item = self.table.item(row, self._columns.index("id_employeur") + 1)  # +1 checkbox
         if item is None:
             return None
         try:
@@ -1368,7 +1442,7 @@ class EmployersDatabaseWidget(QWidget):
         row = self.table.currentRow()
         if row < 0 or self._id_index == -1:
             return None
-        item = self.table.item(row, self._id_index)
+        item = self.table.item(row, self._id_index + 1)  # +1 checkbox
         if item is None:
             return None
         try:
@@ -1379,7 +1453,7 @@ class EmployersDatabaseWidget(QWidget):
     def _collect_row_data(self, row: int) -> Dict[str, Optional[str]]:
         data: Dict[str, Optional[str]] = {}
         for col_index, col_name in enumerate(self._columns):
-            item = self.table.item(row, col_index)
+            item = self.table.item(row, col_index + 1)  # +1 checkbox
             text = "" if item is None else item.text().strip()
             data[col_name] = text if text else None
         return data
@@ -1515,12 +1589,12 @@ class EmployersDatabaseWidget(QWidget):
         # Vérifier qu'un traitement DISA existe pour cette ligne
         # (LEFT JOIN peut retourner NULL pour td.id si l'employeur n'a pas de fiche)
         if "id_traitement" in self._columns:
-            id_col = self._columns.index("id_traitement")
+            id_col = self._columns.index("id_traitement") + 1  # +1 checkbox
             id_item = self.table.item(row, id_col)
             if id_item is None or not id_item.text().strip():
                 return None  # Pas de fiche traitement → suspension impossible
 
-        col_idx = self._columns.index("is_suspended")
+        col_idx = self._columns.index("is_suspended") + 1  # +1 checkbox
         item = self.table.item(row, col_idx)
         if item is None:
             return None
@@ -1566,7 +1640,7 @@ class EmployersDatabaseWidget(QWidget):
         # Récupérer l'id_traitement (colonne "id_traitement" dans la vue jointe)
         traitement_id: Optional[int] = None
         if "id_traitement" in self._columns:
-            col_idx = self._columns.index("id_traitement")
+            col_idx = self._columns.index("id_traitement") + 1  # +1 checkbox
             item = self.table.item(self.table.currentRow(), col_idx)
             if item and item.text().strip():
                 try:
@@ -1615,20 +1689,20 @@ class EmployersDatabaseWidget(QWidget):
         if not self._columns:
             return
 
-        if self._table_name == "join_employeur_traitement":
-            emp_id = self._get_selected_employeur_id()
-            if emp_id is None:
-                QMessageBox.information(self, "Suppression", "Sélectionnez d'abord une ligne à supprimer.")
-                return
+        ids = self._get_selected_ids()
+        if not ids:
+            QMessageBox.information(self, "Suppression", "Sélectionnez d'abord une ou plusieurs lignes à supprimer.")
+            return
+
+        count = len(ids)
+        if count == 1:
+            msg = "Voulez-vous vraiment supprimer cet enregistrement ?\n(Cette action est irréversible)"
         else:
-            emp_id = self._get_selected_id()
-            if emp_id is None:
-                QMessageBox.information(self, "Suppression", "Sélectionnez d'abord une ligne à supprimer.")
-                return
+            msg = f"Voulez-vous vraiment supprimer ces {count} enregistrements ?\n(Cette action est irréversible)"
 
         reply = QMessageBox.question(
             self, "Confirmer la suppression",
-            "Voulez-vous vraiment supprimer cet employeur ?\n(Cette action est irréversible)",
+            msg,
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -1636,12 +1710,17 @@ class EmployersDatabaseWidget(QWidget):
             return
 
         table = "identification_employeurs" if self._table_name == "join_employeur_traitement" else self._table_name
+        placeholders = ",".join("?" * count)
         try:
             conn = get_connection()
             with conn:
-                conn.cursor().execute(f"DELETE FROM {table} WHERE id = ?", (emp_id,))
+                conn.cursor().execute(
+                    f"DELETE FROM {table} WHERE id IN ({placeholders})", ids
+                )
         except Exception as exc:
-            QMessageBox.critical(self, "Erreur base de données", str(exc)); return
+            QMessageBox.critical(self, "Erreur base de données", str(exc))
+            return
 
-        self._load_filters(); self._refresh_table()
+        self._load_filters()
+        self._refresh_table()
         get_data_bus().data_changed.emit()
