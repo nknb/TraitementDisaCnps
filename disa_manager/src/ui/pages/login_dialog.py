@@ -1,4 +1,6 @@
 """Login dialog — thème CNPS avec photo du bâtiment."""
+from __future__ import annotations
+
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QRect, QSize
@@ -11,8 +13,14 @@ from PySide6.QtWidgets import (
     QPushButton, QFrame, QWidget,
 )
 
+import logging
+from datetime import datetime
+from typing import Optional
+
 from db.connection import get_connection
 from core.session import set_current_user
+
+logger = logging.getLogger(__name__)
 
 _IMAGES_DIR  = Path(__file__).resolve().parent.parent / "images"
 _LOGO_PATH   = _IMAGES_DIR / "cnps_logo.jpeg"
@@ -135,6 +143,8 @@ class LoginDialog(QDialog):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
+        self._failed_attempts: int = 0
+        self._lockout_until: Optional[datetime] = None
         self.setWindowTitle("Connexion — Traitement DiSA CNPS")
         self.setModal(True)
         # Taille réduite de 30 % par rapport à l'ancienne version (740×460)
@@ -241,8 +251,6 @@ class LoginDialog(QDialog):
 
     def handle_login(self) -> None:
         """Valide les identifiants via la base SQLite."""
-        import hashlib
-
         username = self.username_edit.text().strip()
         password = self.password_edit.text().strip()
 
@@ -250,7 +258,12 @@ class LoginDialog(QDialog):
             self.info_label.setText("Veuillez renseigner les deux champs.")
             return
 
-        password_hash = hashlib.sha256(password.encode("utf-8")).hexdigest()
+        # Rate-limiting : max 5 tentatives, puis blocage 30 s
+        from datetime import timedelta
+        if self._lockout_until and datetime.now() < self._lockout_until:
+            remaining = int((self._lockout_until - datetime.now()).total_seconds())
+            self.info_label.setText(f"Trop de tentatives. Réessayez dans {remaining} s.")
+            return
 
         try:
             with get_connection() as conn:
@@ -263,11 +276,24 @@ class LoginDialog(QDialog):
             self.info_label.setText(f"Erreur base de données : {exc}")
             return
 
-        if row is None or row["password"] != password_hash:
-            self.info_label.setText("Identifiants incorrects.")
+        from db.init_db import verify_password
+        if row is None or not verify_password(password, row["password"]):
+            self._failed_attempts += 1
+            if self._failed_attempts >= 5:
+                self._lockout_until = datetime.now() + timedelta(seconds=30)
+                self._failed_attempts = 0
+                self.info_label.setText("Trop de tentatives. Compte bloqué 30 s.")
+            else:
+                remaining_tries = 5 - self._failed_attempts
+                self.info_label.setText(
+                    f"Identifiant ou mot de passe incorrect. ({remaining_tries} essai(s) restant(s))"
+                )
             self.password_edit.clear()
             self.password_edit.setFocus()
             return
 
+        # Succès : réinitialiser le compteur
+        self._failed_attempts = 0
+        self._lockout_until = None
         set_current_user(user_id=row["id"], username=row["username"], role=row["role"])
         self.accept()

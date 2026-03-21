@@ -521,3 +521,324 @@
 2026-03-19 13:51:23,517 [DEBUG] db.init_db: Initialisation de la base : C:\Users\m9700\OneDrive - CNPS Caisse Nationale de Prévoyance Sociale\Documents\PROJET\TraitementDisaCnps\disa_manager\data\disa.db
 2026-03-19 13:51:23,630 [INFO] db.init_db: Base de données prête : C:\Users\m9700\OneDrive - CNPS Caisse Nationale de Prévoyance Sociale\Documents\PROJET\TraitementDisaCnps\disa_manager\data\disa.db
 2026-03-19 13:51:35,280 [INFO] __main__: Fenêtre principale ouverte
+2026-03-21 11:28:24,940 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-21 11:28:29,020 [DEBUG] db.init_db: Initialisation de la base : /Users/blanchard/Documents/Projets/TraitementDisaCnps/disa_manager/data/disa.db
+2026-03-21 11:28:29,218 [INFO] db.init_db: Base de données prête : /Users/blanchard/Documents/Projets/TraitementDisaCnps/disa_manager/data/disa.db
+2026-03-21 11:28:35,894 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:28:36,853 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:28:36,858 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:28:36,934 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:28:36,938 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:28:36,956 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:28:37,069 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:28:38,510 [INFO] __main__: Fenêtre principale ouverte
+2026-03-21 11:28:46,330 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:28:49,495 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:28:49,500 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:28:56,328 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:29:06,331 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:29:16,330 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:29:26,329 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:46:23,988 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-21 11:46:24,868 [DEBUG] db.init_db: Initialisation de la base : /Users/blanchard/Documents/Projets/TraitementDisaCnps/disa_manager/data/disa.db
+2026-03-21 11:46:26,461 [INFO] db.init_db: Base de données prête : /Users/blanchard/Documents/Projets/TraitementDisaCnps/disa_manager/data/disa.db
+2026-03-21 11:46:33,303 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:46:33,767 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:46:33,770 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:46:33,839 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:46:33,842 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:46:33,859 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:46:33,956 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:46:35,067 [INFO] __main__: Fenêtre principale ouverte
+2026-03-21 11:46:43,339 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:46:53,339 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:47:03,344 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:47:13,340 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:47:23,345 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:47:33,341 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:47:43,340 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:47:53,343 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:48:03,342 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:48:13,339 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:48:23,342 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:48:33,341 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:48:43,342 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:48:53,342 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:49:03,342 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:49:13,341 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:49:23,341 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:49:33,343 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:49:43,344 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:49:53,344 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:50:03,343 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:50:13,342 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 11:50:23,339 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:41:48,928 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-21 22:41:49,436 [DEBUG] db.init_db: Initialisation de la base : /Users/blanchard/Documents/Projets/TraitementDisaCnps/disa_manager/data/disa.db
+2026-03-21 22:41:50,283 [INFO] db.init_db: Base de données prête : /Users/blanchard/Documents/Projets/TraitementDisaCnps/disa_manager/data/disa.db
+2026-03-21 22:41:59,470 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:41:59,936 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:41:59,938 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:42:00,009 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:42:00,012 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:42:00,030 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:42:00,139 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:42:01,282 [INFO] __main__: Fenêtre principale ouverte
+2026-03-21 22:42:09,550 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:42:11,500 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:42:11,506 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:42:19,550 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:42:29,551 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:42:39,551 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:42:49,549 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:42:59,549 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:43:09,550 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:43:19,551 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:43:29,550 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:43:39,550 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:43:49,553 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:43:59,550 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:44:09,552 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:44:19,554 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:44:29,550 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:44:39,550 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:44:49,564 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:44:59,550 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:45:09,550 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:45:19,551 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:45:29,549 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:45:39,552 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:45:49,551 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:45:59,554 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:48:30,223 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-21 22:48:30,624 [DEBUG] db.init_db: Initialisation de la base : /Users/blanchard/Documents/Projets/TraitementDisaCnps/disa_manager/data/disa.db
+2026-03-21 22:48:30,653 [INFO] db.init_db: Base de données prête : /Users/blanchard/Documents/Projets/TraitementDisaCnps/disa_manager/data/disa.db
+2026-03-21 22:48:37,722 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:48:38,062 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:48:38,064 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:48:38,130 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:48:38,133 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:48:38,178 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:48:38,270 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:48:39,402 [INFO] __main__: Fenêtre principale ouverte
+2026-03-21 22:48:47,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:48:57,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:49:07,545 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:49:17,556 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:49:27,552 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:49:37,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:49:47,548 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:49:57,548 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:50:07,550 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:50:17,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:50:27,547 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:50:37,548 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:50:47,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:50:57,560 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:51:00,967 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:51:00,975 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:51:07,547 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:51:17,555 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:51:27,551 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:51:37,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:51:47,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:51:57,548 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:53:16,762 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-21 22:53:17,169 [DEBUG] db.init_db: Initialisation de la base : /Users/blanchard/Documents/Projets/TraitementDisaCnps/disa_manager/data/disa.db
+2026-03-21 22:53:17,198 [INFO] db.init_db: Base de données prête : /Users/blanchard/Documents/Projets/TraitementDisaCnps/disa_manager/data/disa.db
+2026-03-21 22:53:26,462 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:53:26,791 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:53:26,793 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:53:26,858 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:53:26,861 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:53:26,911 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:53:27,013 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:53:28,399 [INFO] __main__: Fenêtre principale ouverte
+2026-03-21 22:53:36,548 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:53:46,547 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:54:03,222 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-21 22:54:03,484 [DEBUG] db.init_db: Initialisation de la base : /Users/blanchard/Documents/Projets/TraitementDisaCnps/disa_manager/data/disa.db
+2026-03-21 22:54:03,501 [INFO] db.init_db: Base de données prête : /Users/blanchard/Documents/Projets/TraitementDisaCnps/disa_manager/data/disa.db
+2026-03-21 22:54:08,637 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:54:08,639 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:54:14,343 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:54:14,345 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:54:15,860 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:54:17,612 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:54:17,793 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:54:19,179 [INFO] __main__: Connexion annulée — fermeture
+2026-03-21 22:54:44,373 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-21 22:54:44,598 [DEBUG] db.init_db: Initialisation de la base : /Users/blanchard/Documents/Projets/TraitementDisaCnps/disa_manager/data/disa.db
+2026-03-21 22:54:44,619 [INFO] db.init_db: Base de données prête : /Users/blanchard/Documents/Projets/TraitementDisaCnps/disa_manager/data/disa.db
+2026-03-21 22:54:49,425 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:54:49,779 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:54:49,781 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:54:49,848 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:54:49,851 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:54:49,903 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:54:50,007 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:54:51,136 [INFO] __main__: Fenêtre principale ouverte
+2026-03-21 22:54:59,548 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:55:00,762 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:55:00,767 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:55:09,551 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:55:19,561 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:55:29,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:55:39,574 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:55:41,027 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:55:48,527 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:55:49,548 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:55:51,194 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:55:51,377 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:55:59,547 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:56:05,444 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:56:06,077 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:56:06,293 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:56:08,978 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:56:09,160 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:56:09,547 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:56:19,554 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:56:26,461 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:56:26,877 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:56:29,548 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:56:39,551 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:56:42,078 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 22:56:42,083 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:20:26,770 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-21 23:20:27,191 [DEBUG] db.init_db: Initialisation de la base : /Users/blanchard/Documents/Projets/TraitementDisaCnps/disa_manager/data/disa.db
+2026-03-21 23:20:27,195 [INFO] db.init_db: Application de la migration v4 : Indexes de performance sur traitement_disa et identification_employeurs
+2026-03-21 23:20:27,207 [INFO] db.init_db: Migration v4 appliquée avec succès
+2026-03-21 23:20:27,533 [INFO] db.init_db: Sécurité : 3 mot(s) de passe migré(s) vers PBKDF2-SHA256
+2026-03-21 23:20:27,533 [INFO] db.init_db: Base de données prête : /Users/blanchard/Documents/Projets/TraitementDisaCnps/disa_manager/data/disa.db
+2026-03-21 23:20:32,494 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:20:32,497 [INFO] core.session: Connexion : utilisateur 'admin' (rôle=admin)
+2026-03-21 23:20:32,810 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:20:32,812 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:20:32,873 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:20:32,876 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:20:32,925 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:20:33,028 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:20:34,160 [INFO] __main__: Fenêtre principale ouverte
+2026-03-21 23:20:42,543 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:20:43,836 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:20:43,842 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:20:52,543 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:21:02,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:21:12,544 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:21:22,541 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:21:32,541 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:21:42,548 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:21:52,547 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:22:02,542 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:22:12,544 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:22:22,543 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:22:32,542 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:22:42,544 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:22:43,592 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:22:43,593 [ERROR] ui.pages.dashbord: Erreur lors du chargement des données du dashboard
+Traceback (most recent call last):
+  File "/Users/blanchard/Documents/Projets/TraitementDisaCnps/disa_manager/src/ui/pages/dashbord.py", line 344, in add_chart
+    cur.execute("SELECT COUNT(DISTINCT ie.id)" + base_from)
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.OperationalError: no such table: identification_employeurs
+2026-03-21 23:22:52,541 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:22:56,168 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:23:00,265 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:23:02,542 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:23:02,615 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:23:05,083 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:23:12,541 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:23:22,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:23:32,542 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:23:42,543 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:23:47,625 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:23:52,544 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:24:02,556 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:24:12,545 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:24:22,545 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:24:32,543 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:24:42,544 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:24:52,545 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:25:02,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:25:12,544 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:25:22,545 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:25:32,544 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:25:42,544 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:25:52,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:26:02,545 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:26:12,545 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:26:22,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:26:32,545 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:26:42,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:26:52,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:27:02,545 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:27:12,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:27:22,547 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:27:32,547 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:27:42,544 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:27:52,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:28:02,548 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:28:12,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:28:22,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:28:32,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:28:42,547 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:28:52,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:29:02,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:29:12,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:29:22,545 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:29:32,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:29:42,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:29:52,544 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:30:02,547 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:30:12,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:30:22,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:30:32,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:30:42,559 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:30:52,548 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:31:02,550 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:31:12,545 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:31:22,553 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:31:32,582 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:31:42,547 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:31:52,547 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:32:02,549 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:32:12,547 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:32:22,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:32:37,416 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-21 23:32:37,751 [DEBUG] db.init_db: Initialisation de la base : /Users/blanchard/Documents/Projets/TraitementDisaCnps/disa_manager/data/disa.db
+2026-03-21 23:32:37,753 [INFO] db.init_db: Base de données prête : /Users/blanchard/Documents/Projets/TraitementDisaCnps/disa_manager/data/disa.db
+2026-03-21 23:32:45,744 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:32:45,772 [INFO] core.session: Connexion : utilisateur 'admin' (rôle=admin)
+2026-03-21 23:32:46,106 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:32:46,108 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:32:46,181 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:32:46,184 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:32:46,232 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:32:46,337 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:32:47,450 [INFO] __main__: Fenêtre principale ouverte
+2026-03-21 23:32:53,019 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:32:53,028 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:32:55,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:33:05,544 [WARNING] db.connection: Base inaccessible → mode hors ligne. Cause : Base de données introuvable : /Users/blanchard/Documents/disa.db
+Le fichier a peut-être été supprimé ou le partage réseau est déconnecté.
+2026-03-21 23:33:06,542 [DEBUG] core.network_monitor: Vérification base : inaccessible — Base de données introuvable : /Users/blanchard/Documents/disa.db
+Le fichier a peut-être été supprimé ou le partage réseau est déconnecté.
+2026-03-21 23:33:06,560 [WARNING] ui.main_window: Overlay DB inaccessible affiché.
+2026-03-21 23:33:06,560 [WARNING] core.network_monitor: Base de données : INACCESSIBLE (réseau instable)
+2026-03-21 23:33:15,541 [WARNING] db.connection: Base inaccessible → mode hors ligne. Cause : Base de données introuvable : /Users/blanchard/Documents/disa.db
+Le fichier a peut-être été supprimé ou le partage réseau est déconnecté.
+2026-03-21 23:33:16,542 [DEBUG] core.network_monitor: Vérification base : inaccessible — Base de données introuvable : /Users/blanchard/Documents/disa.db
+Le fichier a peut-être été supprimé ou le partage réseau est déconnecté.
+2026-03-21 23:33:25,542 [WARNING] db.connection: Base inaccessible → mode hors ligne. Cause : Base de données introuvable : /Users/blanchard/Documents/disa.db
+Le fichier a peut-être été supprimé ou le partage réseau est déconnecté.
+2026-03-21 23:33:26,543 [DEBUG] core.network_monitor: Vérification base : inaccessible — Base de données introuvable : /Users/blanchard/Documents/disa.db
+Le fichier a peut-être été supprimé ou le partage réseau est déconnecté.
+2026-03-21 23:33:35,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:33:36,544 [INFO] core.network_monitor: Réseau rétabli — replay de la file d'attente.
+2026-03-21 23:33:36,547 [INFO] ui.main_window: Overlay DB inaccessible masqué — base restaurée.
+2026-03-21 23:33:36,547 [INFO] core.network_monitor: Base de données : DISPONIBLE
+2026-03-21 23:33:36,547 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:33:45,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:33:55,710 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:34:05,546 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test
+2026-03-21 23:34:15,549 [WARNING] db.connection: Replay échoué à l'opération 0 : no such table: test

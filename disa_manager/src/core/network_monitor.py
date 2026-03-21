@@ -40,6 +40,10 @@ class _HealthWorker(QThread):
 
     Émet ``result(True)`` si la base est accessible, ``result(False)`` sinon.
     Ne bloque jamais le thread principal.
+
+    Détecte deux cas d'indisponibilité :
+    - Fichier DB absent (supprimé ou partage réseau déconnecté)
+    - Connexion impossible (timeout réseau)
     """
 
     result = Signal(bool)
@@ -47,14 +51,15 @@ class _HealthWorker(QThread):
     def run(self) -> None:
         try:
             from db.connection import _raw_connect, _configure_conn, DB_PATH
-            DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+            # _raw_connect lève FileNotFoundError si le fichier n'existe pas,
+            # ce qui évite la création silencieuse d'une base vide.
             conn = _raw_connect()
             _configure_conn(conn)
             conn.execute("SELECT 1").fetchone()
             conn.close()
             self.result.emit(True)
         except Exception as exc:
-            logger.debug("Vérification réseau : base inaccessible — %s", exc)
+            logger.debug("Vérification base : inaccessible — %s", exc)
             self.result.emit(False)
 
 
@@ -87,6 +92,9 @@ class NetworkMonitor(QObject):
         self._timer.timeout.connect(self._start_check)
         self._timer.start()
 
+        # Vérification immédiate dès l'ouverture de la fenêtre (sans attendre 10 s)
+        QTimer.singleShot(300, self._start_check)
+
     # ── Vérification ─────────────────────────────────────────────────────────
 
     def _start_check(self) -> None:
@@ -103,15 +111,12 @@ class NetworkMonitor(QObject):
         self._available = available
 
         if not was_available and available:
-            # Réseau rétabli → rejouer les écritures en attente
+            # Réseau rétabli → rejouer les écritures en attente.
+            # NB : data_changed est émis par _ReplayWorker après la fin du replay,
+            #      pas ici, pour éviter que l'UI se rafraîchisse avant que les
+            #      écritures soient effectivement rejouées (race condition).
             logger.info("Réseau rétabli — replay de la file d'attente.")
             self._replay_write_queue()
-            # Rafraîchir toutes les pages
-            try:
-                from core.events import get_data_bus
-                get_data_bus().data_changed.emit()
-            except Exception:
-                pass
 
         if was_available != available:
             self.status_changed.emit(available)
@@ -128,7 +133,7 @@ class NetworkMonitor(QObject):
             return
 
         class _ReplayWorker(QThread):
-            def run(self_inner) -> None:  # noqa: N805
+            def run(self) -> None:
                 try:
                     conn = _raw_connect()
                     _configure_conn(conn)
@@ -136,12 +141,10 @@ class NetworkMonitor(QObject):
                     conn.close()
                     if replayed:
                         logger.info("%d écriture(s) rejouée(s).", replayed)
-                        # Re-émettre data_changed après le replay
-                        try:
+                        import contextlib
+                        with contextlib.suppress(Exception):
                             from core.events import get_data_bus
                             get_data_bus().data_changed.emit()
-                        except Exception:
-                            pass
                 except Exception as e:
                     logger.warning("Replay de la file d'attente échoué : %s", e)
 

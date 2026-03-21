@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import List, Optional, Dict
 
 from PySide6.QtCore import Qt
@@ -25,36 +27,17 @@ from PySide6.QtCore import QDate
 
 from db.connection import get_connection
 from core.events import get_data_bus
-
+from ui.dashboard_theme import (
+    BTN_PRIMARY as _STYLE_BTN_PRIMARY,
+    BTN_SUCCESS as _STYLE_BTN_SUCCESS,
+    BTN_DANGER as _STYLE_BTN_DANGER,
+    BTN_NEUTRAL as _STYLE_BTN_NEUTRAL,
+    INPUT_STYLE as _INPUT_STYLE,
+)
 
 # ---------------------------------------------------------------------------
-# Styles réutilisables
+# Styles réutilisables (complémentaires non présents dans dashboard_theme)
 # ---------------------------------------------------------------------------
-_STYLE_BTN_PRIMARY = (
-    "QPushButton { background-color: #1e3a5f; color: white; border-radius: 5px; "
-    "padding: 6px 14px; font-weight: 600; font-size: 12px; }"
-    "QPushButton:hover { background-color: #2a4f80; }"
-    "QPushButton:pressed { background-color: #14294a; }"
-    "QPushButton:disabled { background-color: #9ca3af; }"
-)
-_STYLE_BTN_SUCCESS = (
-    "QPushButton { background-color: #15803d; color: white; border-radius: 5px; "
-    "padding: 6px 14px; font-weight: 600; font-size: 12px; }"
-    "QPushButton:hover { background-color: #16a34a; }"
-    "QPushButton:pressed { background-color: #14532d; }"
-)
-_STYLE_BTN_DANGER = (
-    "QPushButton { background-color: #b91c1c; color: white; border-radius: 5px; "
-    "padding: 6px 14px; font-weight: 600; font-size: 12px; }"
-    "QPushButton:hover { background-color: #dc2626; }"
-    "QPushButton:pressed { background-color: #991b1b; }"
-)
-_STYLE_BTN_NEUTRAL = (
-    "QPushButton { background-color: #475569; color: white; border-radius: 5px; "
-    "padding: 6px 14px; font-weight: 600; font-size: 12px; }"
-    "QPushButton:hover { background-color: #64748b; }"
-    "QPushButton:pressed { background-color: #334155; }"
-)
 _STYLE_BTN_EXPORT = (
     "QPushButton { background-color: #0369a1; color: white; border-radius: 5px; "
     "padding: 6px 14px; font-weight: 600; font-size: 12px; }"

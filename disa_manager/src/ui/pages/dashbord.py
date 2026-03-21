@@ -1,4 +1,10 @@
+from __future__ import annotations
+
+import logging
+
 from PySide6.QtCore import Qt, QMargins, QPropertyAnimation, QEasingCurve, QTimer, QDate
+
+logger = logging.getLogger(__name__)
 from PySide6.QtGui import QPainter, QColor, QFont, QCursor
 from PySide6.QtCharts import (
     QBarCategoryAxis,
@@ -407,9 +413,8 @@ class ChartWidget:
                     traite_par_users.append(str(user))
                     traite_par_nb.append(int(nb or 0))
 
-        except Exception as _exc:
-            import traceback
-            traceback.print_exc()
+        except Exception:
+            logger.exception("Erreur lors du chargement des données du dashboard")
 
         # ── Grille 4 colonnes ─────────────────────────────────────────
         layout.setHorizontalSpacing(10)

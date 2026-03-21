@@ -58,6 +58,19 @@ _MIGRATIONS: list[tuple[int, str, list[str]]] = [
             "ALTER TABLE traitement_disa ADD COLUMN is_suspended INTEGER NOT NULL DEFAULT 0",
         ],
     ),
+    (
+        4,
+        "Indexes de performance sur traitement_disa et identification_employeurs",
+        [
+            "CREATE INDEX IF NOT EXISTS idx_td_traite_par ON traitement_disa(traite_par)",
+            "CREATE INDEX IF NOT EXISTS idx_td_statut ON traitement_disa(statut)",
+            "CREATE INDEX IF NOT EXISTS idx_td_exercice ON traitement_disa(exercice)",
+            "CREATE INDEX IF NOT EXISTS idx_td_employeur ON traitement_disa(employeur_id)",
+            "CREATE INDEX IF NOT EXISTS idx_ie_localites ON identification_employeurs(localites)",
+            "CREATE INDEX IF NOT EXISTS idx_ie_secteur ON identification_employeurs(secteur_activite)",
+            "CREATE INDEX IF NOT EXISTS idx_ie_numero_cnps ON identification_employeurs(numero_cnps)",
+        ],
+    ),
 ]
 
 
@@ -101,7 +114,8 @@ def _apply_migrations(conn: sqlite3.Connection) -> None:
             if stmt_stripped.startswith("ALTER TABLE") and "ADD COLUMN" in stmt_stripped:
                 parts = stmt.split()
                 # ALTER TABLE <table> ADD COLUMN <col> ...
-                try:
+                import contextlib
+                with contextlib.suppress(ValueError, IndexError):
                     tbl_idx = parts.index("TABLE") + 1
                     col_idx = parts.index("COLUMN") + 1
                     tbl = parts[tbl_idx]
@@ -109,8 +123,6 @@ def _apply_migrations(conn: sqlite3.Connection) -> None:
                     if _table_exists(cur, tbl) and _column_exists(cur, tbl, col):
                         logger.debug("Colonne %s.%s déjà présente, saut", tbl, col)
                         continue
-                except (ValueError, IndexError):
-                    pass
 
             try:
                 cur.execute(stmt)
@@ -129,24 +141,65 @@ def _apply_migrations(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-def _hash_plain_passwords(conn: sqlite3.Connection) -> None:
-    """Hache en SHA-256 tout mot de passe stocké en clair.
+def _pbkdf2_hash(password: str) -> str:
+    """Retourne un hash PBKDF2-SHA256 avec salt aléatoire.
 
-    Un hash SHA-256 est une chaîne hexadécimale de 64 caractères exactement.
-    Tout mot de passe qui ne respecte pas ce format est considéré comme du
-    texte clair et est remplacé par son empreinte SHA-256.
+    Format: ``pbkdf2:sha256:<iterations>:<salt_hex>:<hash_hex>``
+    Compatible NIST 2023 (260 000 itérations minimum).
+    """
+    import hashlib, os
+    iterations = 260_000
+    salt = os.urandom(16)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
+    return f"pbkdf2:sha256:{iterations}:{salt.hex()}:{dk.hex()}"
+
+
+def _verify_pbkdf2(password: str, stored: str) -> bool:
+    """Vérifie un mot de passe contre un hash PBKDF2-SHA256."""
+    import hashlib
+    import hmac
+    try:
+        _, _, iter_s, salt_hex, hash_hex = stored.split(":")
+        iterations = int(iter_s)
+        salt = bytes.fromhex(salt_hex)
+        expected = bytes.fromhex(hash_hex)
+        dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
+        return hmac.compare_digest(dk, expected)
+    except Exception:
+        return False
+
+
+def verify_password(password: str, stored: str) -> bool:
+    """Vérifie un mot de passe contre son hash stocké.
+
+    Supporte :
+    - format PBKDF2 : ``pbkdf2:sha256:<iterations>:<salt_hex>:<hash_hex>``
+    - ancien format SHA-256 brut (64 hex) — migration transparente
     """
     import hashlib
+    import hmac
+    if stored.startswith("pbkdf2:sha256:"):
+        return _verify_pbkdf2(password, stored)
+    # Fallback : ancien hash SHA-256 brut (sera migré au prochain démarrage)
+    legacy = hashlib.sha256(password.encode("utf-8")).hexdigest()
+    return hmac.compare_digest(legacy, stored)
 
+
+def _hash_plain_passwords(conn: sqlite3.Connection) -> None:
+    """Migre les mots de passe vers PBKDF2-SHA256.
+
+    - Texte clair           → haché en PBKDF2
+    - Ancien SHA-256 brut   → re-haché en PBKDF2
+    - Déjà en PBKDF2        → ignoré (idempotent)
+    """
     cur = conn.cursor()
     cur.execute("SELECT id, password FROM utilisateurs")
     updates: list[tuple[str, int]] = []
     for row_id, pwd in cur.fetchall():
         pwd_str = str(pwd) if pwd is not None else ""
-        # Déjà haché : exactement 64 caractères hexadécimaux
-        if len(pwd_str) == 64 and all(c in "0123456789abcdef" for c in pwd_str.lower()):
-            continue
-        hashed = hashlib.sha256(pwd_str.encode("utf-8")).hexdigest()
+        if pwd_str.startswith("pbkdf2:sha256:"):
+            continue  # déjà au bon format
+        hashed = _pbkdf2_hash(pwd_str)
         updates.append((hashed, row_id))
 
     if updates:
@@ -154,7 +207,7 @@ def _hash_plain_passwords(conn: sqlite3.Connection) -> None:
             "UPDATE utilisateurs SET password = ? WHERE id = ?", updates
         )
         conn.commit()
-        logger.info("Sécurité : %d mot(s) de passe haché(s) en SHA-256", len(updates))
+        logger.info("Sécurité : %d mot(s) de passe migré(s) vers PBKDF2-SHA256", len(updates))
 
 
 def init_db() -> None:

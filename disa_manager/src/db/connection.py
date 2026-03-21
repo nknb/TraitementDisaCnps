@@ -336,7 +336,16 @@ def _raw_connect() -> sqlite3.Connection:
     Sur Windows SMB, sqlite3.connect() peut bloquer plusieurs minutes si le
     serveur est inaccessible.  Ce wrapper lance la connexion dans un thread
     daemon et abandonne après _CONNECT_TIMEOUT secondes.
+
+    Lève ``FileNotFoundError`` si le fichier DB n'existe pas afin d'éviter
+    que sqlite3 en crée un vide automatiquement.
     """
+    if not DB_PATH.exists():
+        raise FileNotFoundError(
+            f"Base de données introuvable : {DB_PATH}\n"
+            "Le fichier a peut-être été supprimé ou le partage réseau est déconnecté."
+        )
+
     holder: list = [None, None]  # [connexion, erreur]
 
     def _worker() -> None:

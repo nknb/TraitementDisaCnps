@@ -1,10 +1,12 @@
+import contextlib
 import logging
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, Qt
+from PySide6.QtCore import QEvent, Qt, QTimer
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import (
     QMainWindow, QScrollArea, QWidget, QGridLayout, QFrame, QLabel,
+    QVBoxLayout, QHBoxLayout, QGraphicsBlurEffect,
 )
 
 from .ui_sidebar import Ui_MainWindow
@@ -28,16 +30,7 @@ class MainWindow(QMainWindow):
         super().__init__(parent)
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
-        # Augmente légèrement la largeur initiale de la fenêtre (~ +20 %)
-        try:
-            current_width = self.width() or 1000
-            current_height = self.height() or 700
-            # Largeur augmentée d'environ 40 % par rapport à la valeur UI
-            # (deux incréments successifs de +20 % ≈ 1.44)
-            new_width = int(current_width * 1.44)
-            self.resize(new_width, current_height)
-        except Exception:
-            pass
+        self.resize(1280, 750)
         self._apply_stylesheet()
         self._apply_cnps_logo()
         self._init_sidebar_state()
@@ -49,11 +42,10 @@ class MainWindow(QMainWindow):
         self._setup_navigation()
         self._apply_role_restrictions()
         self._setup_network_indicator()
+        self._build_db_overlay()
         # Permet de rendre les polices du dashboard réactives au redimensionnement
-        try:
+        with contextlib.suppress(AttributeError):
             self.ui.page_2.installEventFilter(self)
-        except AttributeError:
-            pass
 
     def _apply_stylesheet(self) -> None:
         """Applique le style défini dans style.qss si présent."""
@@ -78,25 +70,18 @@ class MainWindow(QMainWindow):
         if pixmap.isNull():
             return
 
-        try:
-            # Logo sidebar icônes seules — setScaledContents(True) laisse Qt
-            # adapter le pixmap à la taille exacte du label sans rogner les bords.
-            self.ui.logo_label_1.setPixmap(pixmap)
-            self.ui.logo_label_1.setScaledContents(True)
+        with contextlib.suppress(AttributeError):
+            self._apply_logo_to_widgets(pixmap, logo_path)
 
-            # Logo sidebar menu complet
-            self.ui.logo_label_2.setPixmap(pixmap)
-            self.ui.logo_label_2.setScaledContents(True)
-
-            # Texte à côté du logo dans la sidebar complète
-            self.ui.logo_label_3.setText("CNPS")
-
-            # Icône de la barre de titre de la fenêtre
-            self.setWindowIcon(QIcon(str(logo_path)))
-            self.setWindowTitle("Traitement DiSA — CNPS")
-
-        except AttributeError:
-            logger.warning("Structure UI inattendue dans _apply_cnps_logo : attribut manquant")
+    def _apply_logo_to_widgets(self, pixmap: QPixmap, logo_path: Path) -> None:
+        """Applique le pixmap CNPS aux labels de la sidebar et à l'icône de fenêtre."""
+        self.ui.logo_label_1.setPixmap(pixmap)
+        self.ui.logo_label_1.setScaledContents(True)
+        self.ui.logo_label_2.setPixmap(pixmap)
+        self.ui.logo_label_2.setScaledContents(True)
+        self.ui.logo_label_3.setText("CNPS")
+        self.setWindowIcon(QIcon(str(logo_path)))
+        self.setWindowTitle("Traitement DiSA — CNPS")
 
     def _init_sidebar_state(self) -> None:
         """Corrige l'état initial du sidebar (plein vs réduit)."""
@@ -184,13 +169,11 @@ class MainWindow(QMainWindow):
         self.dashboard_chart.add_chart()
 
         # Premier calcul de la taille des polices en fonction de la largeur actuelle
-        try:
+        with contextlib.suppress(Exception):
             page_width = self.ui.page_2.width() or 900
             scale = max(0.7, min(1.4, page_width / 900.0))
             if hasattr(self.dashboard_chart, "update_font_sizes"):
                 self.dashboard_chart.update_font_sizes(scale)
-        except Exception:
-            pass
 
     def _setup_traitement_page(self) -> None:
         """Installe l'onglet Traitement (import Excel) sur la page_3."""
@@ -325,28 +308,22 @@ class MainWindow(QMainWindow):
 
     def _on_network_status_changed(self, available: bool) -> None:
         """Met à jour l'indicateur visuel et le titre de la fenêtre."""
-        try:
-            monitor = get_network_monitor()
-            pending = monitor.pending_writes
+        with contextlib.suppress(Exception):
+            pending = get_network_monitor().pending_writes
             if available:
-                txt = "● Réseau OK"
-                if pending:
-                    txt += f"  ({pending} en attente)"
-                self._net_indicator.setText(txt)
-                self._net_indicator.setStyleSheet(
-                    "QLabel { color: #22c55e; font-size: 11px; font-weight: 600;"
-                    " background: transparent; padding: 2px 8px; }"
-                )
-                self.setWindowTitle("Traitement DiSA — CNPS")
+                txt = f"● Réseau OK  ({pending} en attente)" if pending else "● Réseau OK"
+                color = "#22c55e"
+                title = "Traitement DiSA — CNPS"
             else:
-                self._net_indicator.setText("⚠ Réseau indisponible — mode hors ligne")
-                self._net_indicator.setStyleSheet(
-                    "QLabel { color: #f59e0b; font-size: 11px; font-weight: 600;"
-                    " background: transparent; padding: 2px 8px; }"
-                )
-                self.setWindowTitle("Traitement DiSA — CNPS  [HORS LIGNE]")
-        except Exception:
-            pass
+                txt = "⚠ Réseau indisponible — mode hors ligne"
+                color = "#f59e0b"
+                title = "Traitement DiSA — CNPS  [HORS LIGNE]"
+            self._net_indicator.setText(txt)
+            self._net_indicator.setStyleSheet(
+                f"QLabel {{ color: {color}; font-size: 11px; font-weight: 600;"
+                " background: transparent; padding: 2px 8px; }"
+            )
+            self.setWindowTitle(title)
 
     def _setup_navigation(self) -> None:
         """Relie les boutons de menu aux pages du stackedWidget."""
@@ -396,3 +373,158 @@ class MainWindow(QMainWindow):
 
         except AttributeError:
             logger.exception("_setup_navigation : bouton de navigation manquant dans le UI")
+
+    # ── Overlay « Base de données inaccessible » ──────────────────────────────
+
+    def _build_db_overlay(self) -> None:
+        """Construit le widget d'overlay affiché quand la base est inaccessible.
+
+        L'overlay est un enfant direct de QMainWindow (pas du centralWidget) afin
+        que le blur appliqué au centralWidget ne l'affecte pas.
+        """
+        self._db_overlay = QWidget(self)
+        self._db_overlay.setObjectName("db_overlay")
+        self._db_overlay.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self._db_overlay.setStyleSheet(
+            "QWidget#db_overlay { background: rgba(15, 23, 42, 180); }"
+        )
+        self._db_overlay.hide()
+
+        root = QVBoxLayout(self._db_overlay)
+        root.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # ── Carte centrale blanche ────────────────────────────────────────────
+        card = QFrame()
+        card.setObjectName("db_card")
+        card.setFixedWidth(480)
+        card.setStyleSheet("""
+            QFrame#db_card {
+                background: #ffffff;
+                border-radius: 18px;
+                border: 2px solid #e5e7eb;
+            }
+        """)
+        card_lay = QVBoxLayout(card)
+        card_lay.setContentsMargins(44, 38, 44, 38)
+        card_lay.setSpacing(14)
+
+        # Icône cadenas
+        icon_lbl = QLabel("🔒")
+        icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon_lbl.setStyleSheet(
+            "font-size: 54px; background: transparent; border: none;"
+        )
+        card_lay.addWidget(icon_lbl)
+
+        # Titre
+        title_lbl = QLabel("Base de données inaccessible")
+        title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_lbl.setStyleSheet(
+            "font-size: 19px; font-weight: 700; color: #b91c1c;"
+            " background: transparent; border: none;"
+            " font-family: 'Segoe UI', Helvetica, Arial, sans-serif;"
+        )
+        card_lay.addWidget(title_lbl)
+
+        # Séparateur
+        sep = QFrame()
+        sep.setFixedHeight(1)
+        sep.setStyleSheet("background: #e5e7eb; border: none;")
+        card_lay.addWidget(sep)
+
+        # Message descriptif
+        msg_lbl = QLabel(
+            "Impossible d'accéder à la base de données.\n"
+            "Le fichier a peut-être été supprimé, déplacé\n"
+            "ou le partage réseau est indisponible.\n\n"
+            "L'application est en attente de rétablissement."
+        )
+        msg_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        msg_lbl.setWordWrap(True)
+        msg_lbl.setStyleSheet(
+            "font-size: 13px; color: #374151; line-height: 1.6;"
+            " background: transparent; border: none;"
+            " font-family: 'Segoe UI', Helvetica, Arial, sans-serif;"
+        )
+        card_lay.addWidget(msg_lbl)
+
+        # Bloc contact
+        contact = QFrame()
+        contact.setObjectName("contact_frame")
+        contact.setStyleSheet("""
+            QFrame#contact_frame {
+                background: #fef9ee;
+                border-radius: 10px;
+                border: 1px solid #fde68a;
+            }
+        """)
+        c_lay = QVBoxLayout(contact)
+        c_lay.setContentsMargins(20, 14, 20, 14)
+        c_lay.setSpacing(6)
+
+        lbl_contact_title = QLabel("Veuillez contacter l'administrateur :")
+        lbl_contact_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_contact_title.setStyleSheet(
+            "font-size: 11px; color: #92400e; background: transparent; border: none;"
+            " font-family: 'Segoe UI', Helvetica, Arial, sans-serif;"
+        )
+        c_lay.addWidget(lbl_contact_title)
+
+        lbl_name = QLabel("N'GUESSAN Kouakou N'Goran Blanchard")
+        lbl_name.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_name.setStyleSheet(
+            "font-size: 14px; font-weight: 700; color: #78350f;"
+            " background: transparent; border: none;"
+            " font-family: 'Segoe UI', Helvetica, Arial, sans-serif;"
+        )
+        c_lay.addWidget(lbl_name)
+
+        lbl_phone = QLabel("📞  07 77 14 51 87")
+        lbl_phone.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl_phone.setStyleSheet(
+            "font-size: 18px; font-weight: 700; color: #1e3a5f;"
+            " letter-spacing: 1px; background: transparent; border: none;"
+            " font-family: 'Segoe UI', Helvetica, Arial, sans-serif;"
+        )
+        c_lay.addWidget(lbl_phone)
+
+        card_lay.addWidget(contact)
+        root.addWidget(card)
+
+        # Connecter au moniteur réseau
+        monitor = get_network_monitor()
+        monitor.status_changed.connect(self._on_db_availability_changed)
+
+    def _show_db_overlay(self) -> None:
+        """Applique le flou sur le contenu et affiche l'overlay."""
+        with contextlib.suppress(Exception):
+            blur = QGraphicsBlurEffect()
+            blur.setBlurRadius(12)
+            self.centralWidget().setGraphicsEffect(blur)
+
+        self._db_overlay.setGeometry(self.rect())
+        self._db_overlay.show()
+        self._db_overlay.raise_()
+        logger.warning("Overlay DB inaccessible affiché.")
+
+    def _hide_db_overlay(self) -> None:
+        """Retire le flou et cache l'overlay."""
+        with contextlib.suppress(Exception):
+            self.centralWidget().setGraphicsEffect(None)
+
+        self._db_overlay.hide()
+        logger.info("Overlay DB inaccessible masqué — base restaurée.")
+
+    def _on_db_availability_changed(self, available: bool) -> None:
+        """Réagit aux changements de disponibilité de la base."""
+        if available:
+            self._hide_db_overlay()
+        else:
+            self._show_db_overlay()
+
+    def resizeEvent(self, event) -> None:  # type: ignore[override]
+        """Redimensionne l'overlay pour qu'il couvre toujours toute la fenêtre."""
+        super().resizeEvent(event)
+        with contextlib.suppress(AttributeError):
+            if self._db_overlay.isVisible():
+                self._db_overlay.setGeometry(self.rect())
