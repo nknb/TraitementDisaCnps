@@ -56,10 +56,10 @@ class _ImportWorker(QThread):
 
 # ── Palette commune (identique aux autres pages) ──────────────────────────────
 _BTN_PRIMARY = (
-	"QPushButton { background:#1e3a5f; color:white; border-radius:5px;"
+	"QPushButton { background:#003f8a; color:white; border-radius:5px;"
 	" padding:7px 16px; font-weight:600; font-size:12px; }"
-	"QPushButton:hover { background:#2a4f80; }"
-	"QPushButton:pressed { background:#16294a; }"
+	"QPushButton:hover { background:#0077c8; }"
+	"QPushButton:pressed { background:#002d66; }"
 	"QPushButton:disabled { background:#9ca3af; }"
 )
 _BTN_SUCCESS = (
@@ -78,17 +78,17 @@ _BTN_NEUTRAL = (
 _INPUT_STYLE = (
 	"QLineEdit, QComboBox { border:1px solid #d1d5db; border-radius:5px;"
 	" padding:6px 10px; font-size:12px; background:white; color:#1f2937; }"
-	"QLineEdit:focus, QComboBox:focus { border:2px solid #1e3a5f; }"
+	"QLineEdit:focus, QComboBox:focus { border:2px solid #003f8a; }"
 	"QLineEdit:read-only { background:#f1f5f9; color:#6b7280; }"
 )
 _TABLE_STYLE = (
 	"QTableWidget { border:1px solid #e2e8f0; border-radius:6px;"
 	" font-size:12px; background:white; gridline-color:#f1f5f9; outline:none; }"
 	"QTableWidget::item { padding:6px 10px; }"
-	"QTableWidget::item:selected { background:#dbeafe; color:#1e3a5f; }"
+	"QTableWidget::item:selected { background:#dbeafe; color:#003f8a; }"
 	"QTableWidget::item:alternate { background:#f8fafc; }"
-	"QHeaderView::section { background:#1e3a5f; color:white; font-weight:700;"
-	" font-size:11px; padding:7px 10px; border:none; border-right:1px solid #2a4f80; }"
+	"QHeaderView::section { background:#003f8a; color:white; font-weight:700;"
+	" font-size:11px; padding:7px 10px; border:none; border-right:1px solid #0077c8; }"
 	"QHeaderView::section:last { border-right:none; }"
 	"QScrollBar:vertical { background:#f1f5f9; width:8px; border-radius:4px; margin:0; }"
 	"QScrollBar::handle:vertical { background:#cbd5e1; border-radius:4px; min-height:32px; }"
@@ -125,7 +125,7 @@ class TraitementWidget(QWidget):
 		header = QFrame()
 		header.setStyleSheet(
 			"QFrame { background: qlineargradient(x1:0,y1:0,x2:1,y2:0,"
-			"stop:0 #1e3a5f, stop:1 #2a4f80); }"
+			"stop:0 #003f8a, stop:1 #0077c8); }"
 		)
 		h_box = QHBoxLayout(header)
 		h_box.setContentsMargins(20, 14, 20, 14)

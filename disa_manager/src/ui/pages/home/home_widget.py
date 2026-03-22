@@ -26,18 +26,22 @@ from db.connection import get_connection
 from core.events import get_data_bus
 from core.session import get_current_user
 
-# Rôle custom pour stocker le flag is_traite sur la colonne 0 de chaque ligne
-_ROLE_IS_TRAITE = Qt.ItemDataRole.UserRole + 10
+# Rôles custom sur la colonne 0 de chaque ligne
+_ROLE_IS_TRAITE    = Qt.ItemDataRole.UserRole + 10  # flag TRAITÉ pour le délégué
+_ROLE_UPDATED_AT   = Qt.ItemDataRole.UserRole + 11  # timestamp updated_at (détection conflits)
+_ROLE_IS_SUSPENDED = Qt.ItemDataRole.UserRole + 12  # flag SUSPENDU pour le délégué
+_ROLE_IS_LOCKED    = Qt.ItemDataRole.UserRole + 13  # flag EN COURS (verrouillé par un autre)
+_ROLE_LOCKED_BY    = Qt.ItemDataRole.UserRole + 14  # nom de l'utilisateur qui a le verrou
 
 
 class _ModernRowDelegate(QStyledItemDelegate):
     """Délégué de rendu moderne pour le tableau Accueil.
 
-    - Fond coloré selon le statut : vert pâle (TRAITÉ) / rouge pâle (NON TRAITÉ)
+    - Fond gris (SUSPENDU) / vert pâle (TRAITÉ) / rouge pâle (NON TRAITÉ)
     - Barre indicatrice verticale de 5 px sur la première colonne
     - Badge pill arrondi sur la colonne statut (col 33)
     - Séparateur horizontal subtil entre lignes
-    - Overlay indigo semi-transparent sur la ligne sélectionnée
+    - Overlay CNPS bleu semi-transparent sur la ligne sélectionnée
     """
 
     _STATUS_COL = 33
@@ -52,9 +56,19 @@ class _ModernRowDelegate(QStyledItemDelegate):
     _NON_BAR    = QColor("#ef4444")
     _NON_FG     = QColor("#991b1b")
 
+    # Palette SUSPENDU (gris)
+    _SUSP_BG    = QColor("#e2e8f0")
+    _SUSP_BAR   = QColor("#64748b")
+    _SUSP_FG    = QColor("#334155")
+
+    # Palette EN COURS (verrouillé par un autre utilisateur) — jaune
+    _LOCK_BG    = QColor("#fef9c3")
+    _LOCK_BAR   = QColor("#eab308")
+    _LOCK_FG    = QColor("#713f12")
+
     # Divers
     _BAR_W    = 5
-    _SEL_OVRL = QColor(99, 102, 241, 40)   # indigo semi-transparent
+    _SEL_OVRL = QColor(0, 119, 200, 40)    # CNPS bleu clair semi-transparent
     _DIVIDER  = QColor(0, 0, 0, 12)
 
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index) -> None:  # type: ignore[override]
@@ -62,12 +76,20 @@ class _ModernRowDelegate(QStyledItemDelegate):
         col = index.column()
         model = index.model()
 
-        # Lire le flag is_traite stocké sur la col 0 de la même ligne
-        is_traite = bool(model.index(row, 0).data(_ROLE_IS_TRAITE))
+        # Lire les flags stockés sur la col 0 de la même ligne
+        is_suspended = bool(model.index(row, 0).data(_ROLE_IS_SUSPENDED))
+        is_locked    = bool(model.index(row, 0).data(_ROLE_IS_LOCKED))
+        is_traite    = bool(model.index(row, 0).data(_ROLE_IS_TRAITE))
 
-        bg  = self._TRAITE_BG  if is_traite else self._NON_BG
-        bar = self._TRAITE_BAR if is_traite else self._NON_BAR
-        fg  = self._TRAITE_FG  if is_traite else self._NON_FG
+        # Priorité : EN COURS > SUSPENDU > TRAITÉ > NON TRAITÉ
+        if is_locked:
+            bg, bar, fg = self._LOCK_BG, self._LOCK_BAR, self._LOCK_FG
+        elif is_suspended:
+            bg, bar, fg = self._SUSP_BG, self._SUSP_BAR, self._SUSP_FG
+        elif is_traite:
+            bg, bar, fg = self._TRAITE_BG, self._TRAITE_BAR, self._TRAITE_FG
+        else:
+            bg, bar, fg = self._NON_BG, self._NON_BAR, self._NON_FG
 
         # Très légère alternance sur les lignes paires
         if row % 2 == 0:
@@ -150,6 +172,15 @@ class HomeWidget(QWidget):
 
         # Duplique et renomme les champs selon le modèle de données
         self._actions_menees_row: int | None = None
+        self._original_td_updated_at: str | None = None   # pour la détection de conflits
+        # Pagination
+        self._page: int = 0
+        self._page_size: int = 150
+        self._total_rows: int = 0
+        # Filtres
+        self._filter_mes_dossiers: bool = False
+        # Soft lock
+        self._current_locked_td_id: int | None = None  # id traitement_disa verrouillé par nous
         self._duplicate_employer_fields()
         self._duplicate_activity_fields()
         self._duplicate_extra_raison_sociale()
@@ -200,9 +231,9 @@ class HomeWidget(QWidget):
             }
             QTableWidget::item { padding: 0px 5px; border: none; }
             QTableWidget::item:selected { background: transparent; }
-            QHeaderView { background: #1e3a5f; border: none; }
+            QHeaderView { background: #003f8a; border: none; }
             QHeaderView::section {
-                background: #1e3a5f;
+                background: #003f8a;
                 color: white;
                 font-family: 'Segoe UI', Arial, sans-serif;
                 font-size: 8px;
@@ -210,7 +241,7 @@ class HomeWidget(QWidget):
                 letter-spacing: 0.3px;
                 padding: 5px 6px;
                 border: none;
-                border-right: 1px solid #2a4f80;
+                border-right: 1px solid #0077c8;
             }
             QHeaderView::section:last { border-right: none; }
             QScrollBar:vertical {
@@ -258,6 +289,26 @@ class HomeWidget(QWidget):
         # Actualisation automatique quand la base change depuis un autre onglet
         get_data_bus().data_changed.connect(self.load_data)
 
+        # ── Heartbeat : renouvelle le verrou toutes les 5 minutes ────────
+        self._heartbeat_timer = QTimer(self)
+        self._heartbeat_timer.setInterval(5 * 60 * 1000)  # 5 min
+        self._heartbeat_timer.timeout.connect(self._renew_lock)
+        self._heartbeat_timer.start()
+
+        # ── Rafraîchissement léger des verrous toutes les 8 secondes ─────
+        self._lock_refresh_timer = QTimer(self)
+        self._lock_refresh_timer.setInterval(8_000)  # 8 s
+        self._lock_refresh_timer.timeout.connect(self._refresh_locks_in_table)
+        self._lock_refresh_timer.start()
+
+        # ── Polling BD multi-instance toutes les 5 secondes ──────────────
+        # Détecte les modifications faites par d'autres postes et recharge.
+        self._last_db_updated_at: str = ""
+        self._db_poll_timer = QTimer(self)
+        self._db_poll_timer.setInterval(5_000)  # 5 s
+        self._db_poll_timer.timeout.connect(self._poll_db_changes)
+        self._db_poll_timer.start()
+
         # ── Mise en page compacte : formulaire + table dans un splitter ──
         self._setup_compact_layout()
 
@@ -266,6 +317,12 @@ class HomeWidget(QWidget):
         super().showEvent(event)
         if self._needs_refresh:
             self.load_data()
+
+    def hideEvent(self, event) -> None:  # type: ignore[override]
+        """Libère le verrou dossier quand l'utilisateur quitte la page Accueil."""
+        super().hideEvent(event)
+        self._unlock_previous_row()
+        self._reset_update_btn()
 
     def _setup_compact_layout(self) -> None:
         """Encapsule le formulaire dans une QScrollArea et utilise un QSplitter
@@ -315,6 +372,73 @@ class HomeWidget(QWidget):
         tc_layout.addWidget(scroll)
         tc_layout.addWidget(func_frame)
 
+        # ── Barre de pagination sous le tableau ───────────────────────────
+        from PySide6.QtWidgets import QPushButton as _PB, QLabel as _QL, QWidget as _QW, QHBoxLayout as _QHL
+        pag_bar = _QW()
+        pag_bar.setFixedHeight(34)
+        pag_bar.setStyleSheet("background: #f1f5f9; border-top: 1px solid #e2e8f0;")
+        pag_lay = _QHL(pag_bar)
+        pag_lay.setContentsMargins(8, 2, 8, 2)
+        pag_lay.setSpacing(6)
+
+        self._prev_btn = _PB("◀")
+        self._next_btn = _PB("▶")
+        self._page_label = _QL("— / —")
+        self._rows_label = _QL("")
+
+        for btn in (self._prev_btn, self._next_btn):
+            btn.setFixedSize(28, 26)
+            btn.setStyleSheet(
+                "QPushButton { background:#003f8a; color:white; border-radius:4px;"
+                " font-size:11px; font-weight:700; border:none; }"
+                "QPushButton:hover { background:#0077c8; }"
+                "QPushButton:disabled { background:#cbd5e1; color:#94a3b8; }"
+            )
+        self._page_label.setStyleSheet("font-size:11px; color:#374151; font-weight:600;")
+        self._rows_label.setStyleSheet("font-size:10px; color:#6b7280;")
+
+        pag_lay.addStretch()
+        pag_lay.addWidget(self._rows_label)
+        pag_lay.addSpacing(12)
+        pag_lay.addWidget(self._prev_btn)
+        pag_lay.addWidget(self._page_label)
+        pag_lay.addWidget(self._next_btn)
+
+        self._prev_btn.clicked.connect(self._on_prev_page)
+        self._next_btn.clicked.connect(self._on_next_page)
+
+        # Conteneur table + pagination
+        from PySide6.QtWidgets import QVBoxLayout as _QVL
+        table_container = _QW()
+        tc2 = _QVL(table_container)
+        tc2.setContentsMargins(0, 0, 0, 0)
+        tc2.setSpacing(0)
+
+        # ── Bannière "Dossier TRAITÉ — lecture seule" ────────────────────
+        self._traite_banner = _QL()
+        self._traite_banner.setFixedHeight(28)
+        self._traite_banner.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._traite_banner.setStyleSheet(
+            "background:#fef3c7; color:#92400e; font-size:11px; font-weight:600;"
+            " padding:4px 8px; border-bottom:1px solid #fbbf24;"
+        )
+        self._traite_banner.hide()
+
+        # ── Bannière "Mes dossiers" filtrés ──────────────────────────────
+        self._mode_banner = _QL()
+        self._mode_banner.setFixedHeight(26)
+        self._mode_banner.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._mode_banner.setStyleSheet(
+            "background:#003f8a; color:white; font-size:11px; font-weight:600;"
+            " padding:3px 8px;"
+        )
+        self._mode_banner.hide()
+
+        tc2.addWidget(self._traite_banner)
+        tc2.addWidget(self._mode_banner)
+        tc2.addWidget(result_frame)
+        tc2.addWidget(pag_bar)
+
         # ── Splitter vertical formulaire / table ──────────────────────────
         splitter = QSplitter(Qt.Orientation.Vertical)
         splitter.setHandleWidth(6)
@@ -326,7 +450,7 @@ class HomeWidget(QWidget):
             QSplitter::handle:hover { background: #94a3b8; }
         """)
         splitter.addWidget(top_container)
-        splitter.addWidget(result_frame)
+        splitter.addWidget(table_container)
         # Formulaire ~35 %, table ~65 % de l'espace disponible
         splitter.setStretchFactor(0, 40)
         splitter.setStretchFactor(1, 60)
@@ -367,7 +491,7 @@ class HomeWidget(QWidget):
             h.addWidget(lbl)
             return frame
 
-        layout6.addWidget(_make_header("IDENTIFICATION EMPLOYEUR", "#1e3a5f"), 0, 0, 1, 1)
+        layout6.addWidget(_make_header("IDENTIFICATION EMPLOYEUR", "#003f8a"), 0, 0, 1, 1)
         layout6.addWidget(_make_header("TRAITEMENT DISA", "#14532d"), 0, 1, 1, 1)
         layout6.addLayout(self.ui.gridLayout_2, 1, 0, 1, 1)
         layout6.addLayout(self.ui.gridLayout_3, 1, 1, 1, 1)
@@ -399,7 +523,7 @@ class HomeWidget(QWidget):
             "QPushButton:pressed {{ background:{prs}; }}"
         )
         _styles = {
-            "add":    _btn_base.format(bg="#1e3a5f", hov="#2a4f80", prs="#16294a"),
+            "add":    _btn_base.format(bg="#003f8a", hov="#0077c8", prs="#002d66"),
             "update": _btn_base.format(bg="#15803d", hov="#16a34a", prs="#14532d"),
             "clear":  _btn_base.format(bg="#64748b", hov="#475569", prs="#334155"),
             "delete": _btn_base.format(bg="#b91c1c", hov="#dc2626", prs="#991b1b"),
@@ -634,6 +758,31 @@ class HomeWidget(QWidget):
                 date = QDate.fromString(self._DATE_SENTINEL, "yyyy-MM-dd")
             widget.setDate(date)
 
+    def _set_form_read_only(self, read_only: bool) -> None:
+        """Passe tous les champs du formulaire en lecture seule ou en édition.
+
+        Appelé quand un dossier TRAITÉ (non-admin) ou verrouillé par un autre
+        utilisateur est sélectionné.
+        """
+        _ro_style = (
+            "background:#f1f5f9; color:#64748b;"
+            " border:1px solid #e2e8f0; border-radius:3px;"
+        )
+        for layout in (self.ui.gridLayout_2, self.ui.gridLayout_3):
+            row_count = layout.rowCount()
+            for r in range(row_count):
+                item = layout.itemAtPosition(r, 1)
+                if item is None:
+                    continue
+                widget = item.widget()
+                if widget is None:
+                    continue
+                if isinstance(widget, QLineEdit):
+                    widget.setReadOnly(read_only)
+                    widget.setStyleSheet(_ro_style if read_only else "")
+                elif isinstance(widget, (QComboBox, QDateEdit)):
+                    widget.setEnabled(not read_only)
+
     def _to_int_or_none(self, value: str):
         value = (value or "").strip()
         if not value:
@@ -728,7 +877,7 @@ class HomeWidget(QWidget):
         """Configure les champs de date cliquables et remplace les listes déroulantes.
 
         - Les lignes de date (réception, traitement, validation, traitement rejet)
-          deviennent des QDateEdit avec calendrier.
+          deviennent des QDateEdit avec calendrier et icône moderne.
         - Toutes les QComboBox restantes dans la colonne de droite sont remplacées
           par de simples QLineEdit (plus de listes déroulantes).
         """
@@ -737,7 +886,51 @@ class HomeWidget(QWidget):
 
         # Lignes utilisées pour les dates dans la deuxième colonne
         from PySide6.QtCore import QDate
+        import os as _os
         _sentinel = QDate.fromString(self._DATE_SENTINEL, "yyyy-MM-dd")
+
+        # Chemin vers l'icône calendrier
+        _icons_dir = _os.path.join(_os.path.dirname(__file__), "icons")
+        _cal_icon = _os.path.join(_icons_dir, "calendar.svg").replace("\\", "/")
+
+        _date_qss = (
+            "QDateEdit {"
+            "  border: 1px solid #c5d5e8;"
+            "  border-radius: 5px;"
+            "  padding: 4px 6px;"
+            "  background: #ffffff;"
+            "  font-family: 'Segoe UI', Helvetica, Arial, sans-serif;"
+            "  font-size: 12px;"
+            "  color: #1e293b;"
+            "  min-height: 26px;"
+            "}"
+            "QDateEdit:focus {"
+            "  border: 1px solid #0077c8;"
+            "  background: #f0f7ff;"
+            "}"
+            "QDateEdit:disabled {"
+            "  background: #f1f5f9;"
+            "  color: #94a3b8;"
+            "  border-color: #e2e8f0;"
+            "}"
+            "QDateEdit::drop-down {"
+            "  subcontrol-origin: padding;"
+            "  subcontrol-position: right center;"
+            "  width: 28px;"
+            "  border-left: 1px solid #c5d5e8;"
+            "  border-top-right-radius: 5px;"
+            "  border-bottom-right-radius: 5px;"
+            "  background: #e8f1fb;"
+            "}"
+            "QDateEdit::drop-down:hover {"
+            "  background: #cce0f5;"
+            "}"
+            f"QDateEdit::down-arrow {{"
+            f"  image: url({_cal_icon});"
+            f"  width: 16px;"
+            f"  height: 16px;"
+            f"}}"
+        )
 
         date_rows = [0, 1, 2, 9]
         for row in date_rows:
@@ -751,11 +944,12 @@ class HomeWidget(QWidget):
 
             date_edit = QDateEdit(self.ui.info_frame)
             date_edit.setCalendarPopup(True)
-            date_edit.setDisplayFormat("yyyy-MM-dd")
+            date_edit.setDisplayFormat("dd/MM/yyyy")
             # La date minimale sert de sentinelle "non saisie" (affichée comme texte vide)
             date_edit.setMinimumDate(_sentinel)
             date_edit.setDate(_sentinel)
             date_edit.setSpecialValueText("(non définie)")
+            date_edit.setStyleSheet(_date_qss)
             layout.addWidget(date_edit, row, 1, 1, 1)
 
         # Remplace toutes les autres QComboBox de la colonne de droite par des QLineEdit
@@ -807,11 +1001,25 @@ class HomeWidget(QWidget):
             "  color: #374151;"
             "}"
             "QLineEdit:focus {"
-            "  border: 2px solid #2563eb;"
+            "  border: 2px solid #003f8a;"
             "  background-color: #ffffff;"
             "}"
         )
         layout.insertWidget(0, self.search_cnps_line)
+
+        # Bouton toggle "Mes dossiers"
+        from PySide6.QtWidgets import QPushButton as _QPushButton
+        self._mes_dossiers_btn = _QPushButton("👤  Mes dossiers")
+        self._mes_dossiers_btn.setCheckable(True)
+        self._mes_dossiers_btn.setToolTip("Afficher uniquement les dossiers qui me sont assignés ou que j'ai traités")
+        self._mes_dossiers_btn.setStyleSheet(
+            "QPushButton { background:#e2e8f0; color:#334155; border-radius:6px;"
+            " padding:6px 12px; font-size:11px; font-weight:600; border:none; }"
+            "QPushButton:checked { background:#003f8a; color:white; }"
+            "QPushButton:hover:!checked { background:#cbd5e1; }"
+        )
+        self._mes_dossiers_btn.toggled.connect(self._on_mes_dossiers_toggled)
+        layout.insertWidget(1, self._mes_dossiers_btn)
 
         # Timer pour appliquer la recherche automatiquement après une pause de saisie
         self._search_timer = QTimer(self)
@@ -822,8 +1030,9 @@ class HomeWidget(QWidget):
         self.search_cnps_line.textChanged.connect(self._on_search_text_changed)
 
     def _clear_layout_fields(self, layout) -> None:
-        """Efface tous les champs (QLineEdit / QComboBox) d'un layout grille."""
+        """Efface tous les champs (QLineEdit / QComboBox / QDateEdit) d'un layout grille."""
 
+        _sentinel = QDate.fromString(self._DATE_SENTINEL, "yyyy-MM-dd")
         rows = layout.rowCount()
         for row in range(rows):
             item = layout.itemAtPosition(row, 1)
@@ -834,6 +1043,8 @@ class HomeWidget(QWidget):
                 widget.clear()
             elif isinstance(widget, QComboBox):
                 widget.setCurrentText("")
+            elif isinstance(widget, QDateEdit):
+                widget.setDate(_sentinel)
 
     # ------------------------------------------------------------------
     # Chargement du tableau depuis la base
@@ -866,7 +1077,10 @@ class HomeWidget(QWidget):
         # puis on ajoute des colonnes supplémentaires pour les champs du schéma
         # (date_debut_activite, forme_juridique, DISA 20xx, localisation, id traitement,
         #  actions_menees, téléphone_2, email_2, email_3, etc.).
-        query = """
+        _current_user = get_current_user()
+        _username = _current_user.username if _current_user else None
+
+        base_select = """
             SELECT
                 ie.id AS employeur_id,
                 ie.numero,
@@ -893,7 +1107,6 @@ class HomeWidget(QWidget):
                 td.nbre_restant_de_rejet,
                 td.observations,
                 td.statut,
-                -- Champs supplémentaires de identification_employeurs
                 ie.date_debut_activite,
                 ie.forme_juridique,
                 ie.disa_2024,
@@ -902,29 +1115,51 @@ class HomeWidget(QWidget):
                 ie.disa_2021,
                 ie.disa_anterieures_2010_2020,
                 ie.localisation_geographique,
-                -- Id du traitement DISA
                 td.id AS traitement_id,
-                -- Champs complémentaires de la jointure
                 td.actions_menees,
                 ie.telephone_2,
                 ie.email_2,
                 ie.email_3,
                 td.traite_par,
-                COALESCE(td.is_suspended, 0) AS is_suspended
+                COALESCE(td.is_suspended, 0) AS is_suspended,
+                td.updated_at,
+                td.locked_by
             FROM identification_employeurs ie
             LEFT JOIN traitement_disa td ON td.employeur_id = ie.id
         """
         params: list = []
+        where_clauses: list[str] = []
 
         if filter_text:
-            query += " WHERE ie.numero_cnps = ? OR ie.raison_sociale LIKE ?"
+            where_clauses.append("(ie.numero_cnps = ? OR ie.raison_sociale LIKE ?)")
             like = f"%{filter_text}%"
             params.extend([filter_text, like])
 
-        query += " ORDER BY ie.numero"
+        if self._filter_mes_dossiers and _username:
+            where_clauses.append(
+                "(COALESCE(td.traite_par,'') = ? OR COALESCE(td.locked_by,'') = ?)"
+            )
+            params.extend([_username, _username])
+
+        where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
+
+        count_sql = "SELECT COUNT(*) FROM identification_employeurs ie LEFT JOIN traitement_disa td ON td.employeur_id = ie.id" + where_sql
+        offset = self._page * self._page_size
+        query = base_select + where_sql + " ORDER BY ie.numero LIMIT ? OFFSET ?"
 
         with conn:
-            rows = conn.execute(query, params).fetchall()
+            # Auto-déverrouiller les verrous expirés (> 10 min)
+            try:
+                conn.execute(
+                    "UPDATE traitement_disa SET locked_by = NULL, locked_at = NULL"
+                    " WHERE locked_at IS NOT NULL"
+                    "   AND (julianday('now') - julianday(locked_at)) * 1440 > 10"
+                )
+            except Exception:
+                pass
+
+            self._total_rows = conn.execute(count_sql, params).fetchone()[0] or 0
+            rows = conn.execute(query, params + [self._page_size, offset]).fetchall()
 
         table = self.ui.tableWidget
         table.setRowCount(len(rows))
@@ -1012,13 +1247,27 @@ class HomeWidget(QWidget):
 
             is_traite = statut_db.upper() == "TRAITÉ"
 
-            # Stocker le flag sur la col 0 pour que le délégué colorise toute la ligne
+            # Stocker les métadonnées sur la col 0
+            locked_by_val = row[41] if len(row) > 41 else None
+            is_locked_by_other = bool(locked_by_val and locked_by_val != _username)
             col0_item = table.item(row_index, 0)
             if col0_item is not None:
                 col0_item.setData(_ROLE_IS_TRAITE, is_traite)
+                col0_item.setData(_ROLE_IS_SUSPENDED, is_suspended_val)
+                col0_item.setData(_ROLE_UPDATED_AT, row[40] if len(row) > 40 else None)
+                col0_item.setData(_ROLE_IS_LOCKED, is_locked_by_other)
+                col0_item.setData(_ROLE_LOCKED_BY, locked_by_val)
 
             # Badge texte dans la colonne statut (couleur gérée par le délégué)
-            statut_text = "✔  TRAITÉ" if is_traite else "✗  NON TRAITÉ"
+            if is_suspended_val:
+                statut_text = "⊘  SUSPENDU"
+            elif is_locked_by_other:
+                short_name = (locked_by_val or "")[:10]
+                statut_text = f"🔒  {short_name}"
+            elif is_traite:
+                statut_text = "✔  TRAITÉ"
+            else:
+                statut_text = "✗  NON TRAITÉ"
             status_item = QTableWidgetItem(statut_text)
             bold_font = QFont("Segoe UI", 7)
             bold_font.setBold(True)
@@ -1030,6 +1279,7 @@ class HomeWidget(QWidget):
 
         # Ajuste automatiquement la largeur des colonnes comme dans les autres onglets
         table.resizeColumnsToContents()
+        self._update_pagination_bar()
 
         # Déplace visuellement la colonne STATUT (logique 33) en première position
         header = table.horizontalHeader()
@@ -1039,6 +1289,218 @@ class HomeWidget(QWidget):
     # Synchronisation tableau <-> formulaire
     # ------------------------------------------------------------------
 
+    # ------------------------------------------------------------------
+    # Pagination
+    # ------------------------------------------------------------------
+
+    def _update_pagination_bar(self) -> None:
+        """Met à jour les labels et l'état des boutons de pagination."""
+        if not hasattr(self, "_page_label"):
+            return
+        total_pages = max(1, (self._total_rows + self._page_size - 1) // self._page_size)
+        current_page = self._page + 1
+        start = self._page * self._page_size + 1
+        end = min(start + self._page_size - 1, self._total_rows)
+        self._page_label.setText(f"Page {current_page} / {total_pages}")
+        self._rows_label.setText(f"{start}–{end} sur {self._total_rows} dossiers")
+        self._prev_btn.setEnabled(self._page > 0)
+        self._next_btn.setEnabled(current_page < total_pages)
+
+    def _on_prev_page(self) -> None:
+        if self._page > 0:
+            self._unlock_previous_row()
+            self._page -= 1
+            self._apply_search()
+
+    def _on_next_page(self) -> None:
+        total_pages = max(1, (self._total_rows + self._page_size - 1) // self._page_size)
+        if self._page + 1 < total_pages:
+            self._unlock_previous_row()
+            self._page += 1
+            self._apply_search()
+
+    def _on_mes_dossiers_toggled(self, checked: bool) -> None:
+        self._filter_mes_dossiers = checked
+        self._page = 0
+        if hasattr(self, "_mode_banner"):
+            if checked:
+                user = get_current_user()
+                name = user.username if user else "vous"
+                self._mode_banner.setText(
+                    f"👤  Vue filtrée — Seuls vos dossiers sont affichés  ·  Connecté : {name}"
+                )
+                self._mode_banner.show()
+            else:
+                self._mode_banner.hide()
+        self._apply_search()
+
+    def _reset_update_btn(self) -> None:
+        """Réactive le bouton Mettre à jour avec son style normal et masque la bannière TRAITÉ."""
+        try:
+            self.ui.update_btn.setEnabled(True)
+            self.ui.update_btn.setToolTip("")
+            self.ui.update_btn.setStyleSheet(
+                "QPushButton { background:#15803d; color:white; border-radius:5px;"
+                " padding:6px 14px; font-weight:600; font-size:12px; }"
+                "QPushButton:hover { background:#16a34a; }"
+                "QPushButton:pressed { background:#14532d; }"
+            )
+        except AttributeError:
+            pass
+        if hasattr(self, "_traite_banner"):
+            self._traite_banner.hide()
+        self._set_form_read_only(False)
+
+    # ------------------------------------------------------------------
+    # Soft lock (verrou souple multi-utilisateurs)
+    # ------------------------------------------------------------------
+
+    def _lock_current_row(self, td_id: int) -> None:
+        """Verrouille le dossier td_id pour l'utilisateur courant (10 min)."""
+        user = get_current_user()
+        if not user or not td_id:
+            return
+        self._unlock_previous_row()
+        try:
+            with get_connection() as conn:
+                conn.execute(
+                    "UPDATE traitement_disa"
+                    " SET locked_by = ?, locked_at = datetime('now')"
+                    " WHERE id = ? AND (locked_by IS NULL OR locked_by = ?)",
+                    (user.username, td_id, user.username),
+                )
+            self._current_locked_td_id = td_id
+        except Exception:
+            pass
+
+    def _unlock_previous_row(self) -> None:
+        """Libère le verrou sur le dossier précédemment sélectionné."""
+        if self._current_locked_td_id is None:
+            return
+        user = get_current_user()
+        try:
+            with get_connection() as conn:
+                conn.execute(
+                    "UPDATE traitement_disa"
+                    " SET locked_by = NULL, locked_at = NULL"
+                    " WHERE id = ? AND locked_by = ?",
+                    (self._current_locked_td_id, user.username if user else ""),
+                )
+        except Exception:
+            pass
+        self._current_locked_td_id = None
+
+    def _renew_lock(self) -> None:
+        """Renouvelle le verrou actif pour éviter l'expiration pendant une longue session."""
+        if self._current_locked_td_id is None:
+            return
+        user = get_current_user()
+        if not user:
+            return
+        try:
+            with get_connection() as conn:
+                conn.execute(
+                    "UPDATE traitement_disa"
+                    " SET locked_at = datetime('now')"
+                    " WHERE id = ? AND locked_by = ?",
+                    (self._current_locked_td_id, user.username),
+                )
+        except Exception:
+            pass
+
+    def _refresh_locks_in_table(self) -> None:
+        """Rafraîchit silencieusement le statut des verrous dans le tableau visible.
+
+        Ne recharge pas toutes les données — met à jour seulement les flags
+        locked_by / locked_at et redessine les badges de statut.
+        """
+        table = self.ui.tableWidget
+        if not self.isVisible() or table.rowCount() == 0:
+            return
+
+        # Collecter les id traitement visibles
+        td_pairs: list[tuple[int, int]] = []  # (row_index, td_id)
+        for r in range(table.rowCount()):
+            item = table.item(r, 32)
+            if item and item.text().strip():
+                try:
+                    td_pairs.append((r, int(item.text())))
+                except ValueError:
+                    pass
+        if not td_pairs:
+            return
+
+        try:
+            user = get_current_user()
+            username = user.username if user else ""
+            ph = ",".join("?" * len(td_pairs))
+            with get_connection() as conn:
+                rows = conn.execute(
+                    f"SELECT id, locked_by, locked_at FROM traitement_disa WHERE id IN ({ph})",
+                    [t[1] for t in td_pairs],
+                ).fetchall()
+            lock_map = {r[0]: (r[1], r[2]) for r in rows}
+
+            for row_idx, td_id in td_pairs:
+                if td_id not in lock_map:
+                    continue
+                locked_by, locked_at = lock_map[td_id]
+
+                # Vérifier TTL (> 10 min → verrou expiré)
+                is_locked_by_other = False
+                if locked_by and locked_by != username:
+                    is_locked_by_other = True
+
+                col0 = table.item(row_idx, 0)
+                if col0 is None:
+                    continue
+
+                old_locked = bool(col0.data(_ROLE_IS_LOCKED))
+                col0.setData(_ROLE_IS_LOCKED, is_locked_by_other)
+                col0.setData(_ROLE_LOCKED_BY, locked_by)
+
+                # Mettre à jour le badge statut si le statut de verrou a changé
+                if old_locked != is_locked_by_other:
+                    is_traite  = bool(col0.data(_ROLE_IS_TRAITE))
+                    is_susp    = bool(col0.data(_ROLE_IS_SUSPENDED))
+                    status_item = table.item(row_idx, 33)
+                    if status_item:
+                        if is_susp:
+                            status_item.setText("⊘  SUSPENDU")
+                        elif is_locked_by_other:
+                            status_item.setText(f"🔒  {(locked_by or '')[:10]}")
+                        elif is_traite:
+                            status_item.setText("✔  TRAITÉ")
+                        else:
+                            status_item.setText("✗  NON TRAITÉ")
+
+            table.viewport().update()
+        except Exception:
+            pass
+
+    def _poll_db_changes(self) -> None:
+        """Détecte les modifications faites sur d'autres postes et recharge si nécessaire.
+
+        Compare MAX(updated_at) de traitement_disa avec la dernière valeur connue.
+        Si différent → rechargement complet du tableau (silencieux).
+        """
+        if not self.isVisible():
+            return
+        try:
+            with get_connection() as conn:
+                row = conn.execute(
+                    "SELECT MAX(updated_at) FROM traitement_disa"
+                ).fetchone()
+            latest = (row[0] or "") if row else ""
+            if self._last_db_updated_at == "":
+                # Première exécution : initialiser sans recharger
+                self._last_db_updated_at = latest
+            elif latest != self._last_db_updated_at:
+                self._last_db_updated_at = latest
+                self.load_data()
+        except Exception:
+            pass
+
     def on_table_row_selected(self, row: int, column: int) -> None:  # noqa: ARG002
         """Remplit le formulaire à partir de la ligne sélectionnée."""
 
@@ -1047,6 +1509,10 @@ class HomeWidget(QWidget):
         first_item = table.item(row, 0)
         if not first_item:
             return
+
+        # Libérer immédiatement le verrou de la ligne précédente
+        # (automatique — l'utilisateur n'a pas besoin de cliquer Effacer)
+        self._unlock_previous_row()
 
         # Colonnes 0..10 -> layout_2
         layout2 = self.ui.gridLayout_2
@@ -1072,6 +1538,78 @@ class HomeWidget(QWidget):
             actions_item = table.item(row, 34)
             actions_val = actions_item.text() if actions_item else ""
             self._set_text_in_layout(layout3, self._actions_menees_row, actions_val)
+
+        # Mémoriser updated_at pour la détection de conflits lors de la sauvegarde
+        col0 = table.item(row, 0)
+        self._original_td_updated_at = col0.data(_ROLE_UPDATED_AT) if col0 else None
+
+        # ── Vérification TRAITÉ : lecture seule pour les non-admins
+        #    sauf si c'est l'agent qui a lui-même traité le dossier ──────
+        is_traite = bool(col0.data(_ROLE_IS_TRAITE)) if col0 else False
+        user = get_current_user()
+        is_admin = (user.role.lower() == "admin") if user else False
+        traite_par = (table.item(row, 38).text() if table.item(row, 38) else "") or ""
+        is_own_dossier = traite_par == (user.username if user else "")
+
+        if is_traite and not is_admin and not is_own_dossier:
+            # Dossier traité par un autre agent → lecture seule
+            self.ui.update_btn.setEnabled(False)
+            self.ui.update_btn.setToolTip(
+                "Dossier traité par un autre agent — seul un administrateur peut le modifier"
+            )
+            self.ui.update_btn.setStyleSheet(
+                "QPushButton { background:#94a3b8; color:white; border-radius:5px;"
+                " padding:6px 14px; font-weight:600; font-size:12px; }"
+            )
+            self._set_form_read_only(True)
+            if hasattr(self, "_traite_banner"):
+                _par_label = traite_par or "un agent"
+                self._traite_banner.setText(
+                    f"🔒  Dossier TRAITÉ par {_par_label} — Lecture seule.  "
+                    "Seul un administrateur peut modifier ce dossier."
+                )
+                self._traite_banner.setStyleSheet(
+                    "background:#fef3c7; color:#92400e; font-size:11px; font-weight:600;"
+                    " padding:4px 8px; border-bottom:1px solid #fbbf24;"
+                )
+                self._traite_banner.show()
+        else:
+            # Réactiver le bouton et masquer la bannière
+            self._reset_update_btn()
+
+        # Verrouiller le dossier pour éviter l'édition simultanée
+        td_id_item = table.item(row, 32)  # colonne traitement_id
+        td_id = None
+        if td_id_item:
+            try:
+                td_id = int(td_id_item.text()) if td_id_item.text().strip() else None
+            except (ValueError, TypeError):
+                td_id = None
+        if td_id:
+            locked_by = col0.data(_ROLE_LOCKED_BY) if col0 else None
+            if locked_by and locked_by != (user.username if user else ""):
+                # Dossier ouvert par un autre agent → lecture seule
+                self.ui.update_btn.setEnabled(False)
+                self.ui.update_btn.setToolTip(
+                    f"Dossier en cours d'édition par {locked_by}"
+                )
+                self.ui.update_btn.setStyleSheet(
+                    "QPushButton { background:#eab308; color:white; border-radius:5px;"
+                    " padding:6px 14px; font-weight:600; font-size:12px; }"
+                )
+                self._set_form_read_only(True)
+                if hasattr(self, "_traite_banner"):
+                    self._traite_banner.setText(
+                        f"🔒  Dossier ouvert par {locked_by} — Lecture seule."
+                        "  Attendez qu'il libère le dossier pour pouvoir le modifier."
+                    )
+                    self._traite_banner.setStyleSheet(
+                        "background:#fef9c3; color:#713f12; font-size:11px; font-weight:600;"
+                        " padding:4px 8px; border-bottom:1px solid #fbbf24;"
+                    )
+                    self._traite_banner.show()
+            else:
+                self._lock_current_row(td_id)
 
     def _get_current_employeur_id(self) -> int | None:
         """Récupère l'id employeur stocké dans la ligne sélectionnée du tableau."""
@@ -1112,7 +1650,16 @@ class HomeWidget(QWidget):
         if hasattr(self, "search_cnps_line") and self.search_cnps_line is not None:
             text_value = self.search_cnps_line.text().strip()
             if text_value:
+                # Réinitialiser la page seulement si le filtre change
+                if getattr(self, '_last_filter', '') != text_value:
+                    self._page = 0
+                self._last_filter = text_value
                 filter_text = text_value
+            else:
+                # Réinitialiser la page seulement si on vient d'effacer un filtre actif
+                if getattr(self, '_last_filter', '') != '':
+                    self._page = 0
+                self._last_filter = ""
 
         self.load_data(filter_text=filter_text)
 
@@ -1136,7 +1683,10 @@ class HomeWidget(QWidget):
             self.search_cnps_line.clear()
             if hasattr(self, "_search_timer") and self._search_timer is not None:
                 self._search_timer.stop()
-        # On recharge toutes les données (sans filtre)
+        # Réactiver le bouton Mettre à jour si un dossier TRAITÉ était sélectionné
+        self._reset_update_btn()
+        # Libérer le verrou puis recharger
+        self._unlock_previous_row()
         self.load_data()
 
     def on_add_clicked(self) -> None:
@@ -1340,6 +1890,66 @@ class HomeWidget(QWidget):
             QMessageBox.warning(self, "Champs obligatoires manquants", err)
             return
 
+        # ── Vérification TRAITÉ : seul l'admin (ou l'agent qui a traité) peut modifier
+        _current_user = get_current_user()
+        _is_admin = (_current_user.role.lower() == "admin") if _current_user else False
+        if not _is_admin:
+            try:
+                with get_connection() as _chk0:
+                    _r0 = _chk0.execute(
+                        "SELECT statut, traite_par FROM traitement_disa "
+                        "WHERE employeur_id = ? AND exercice = ?",
+                        (employeur_id, exercice),
+                    ).fetchone()
+                if _r0 and (_r0[0] or "").upper() == "TRAITÉ":
+                    _par = _r0[1] or ""
+                    # L'agent qui a lui-même traité le dossier peut le modifier
+                    _is_own = _par == (_current_user.username if _current_user else "")
+                    if not _is_own:
+                        QMessageBox.warning(
+                            self, "Dossier protégé",
+                            f"Ce dossier a déjà été <b>traité</b> par <b>{_par or 'un agent'}</b>.<br><br>"
+                            "Seul un <b>administrateur</b> ou l'agent qui a traité ce dossier peut le modifier."
+                        )
+                        return
+            except Exception:
+                pass
+        # ─────────────────────────────────────────────────────────────────────
+
+        # ── Vérification anti-conflit ─────────────────────────────────────────
+        # Un autre utilisateur a-t-il modifié ce dossier depuis qu'on l'a ouvert ?
+        if self._original_td_updated_at is not None:
+            try:
+                with get_connection() as _chk:
+                    _chk_row = _chk.execute(
+                        "SELECT updated_at, traite_par FROM traitement_disa "
+                        "WHERE employeur_id = ? AND exercice = ?",
+                        (employeur_id, exercice),
+                    ).fetchone()
+                current_updated_at = _chk_row["updated_at"] if _chk_row else None
+                last_user = (_chk_row["traite_par"] or "un autre utilisateur") if _chk_row else "un autre utilisateur"
+            except Exception:
+                current_updated_at = None
+                last_user = "un autre utilisateur"
+
+            if current_updated_at and current_updated_at != self._original_td_updated_at:
+                msg = QMessageBox(self)
+                msg.setWindowTitle("Conflit de modification")
+                msg.setIcon(QMessageBox.Icon.Warning)
+                msg.setText(
+                    f"⚠  Ce dossier a été modifié par <b>{last_user}</b> "
+                    f"depuis que vous l'avez ouvert.<br><br>"
+                    "Vos modifications <b>écraseront</b> les siennes.<br>"
+                    "Voulez-vous continuer quand même ?"
+                )
+                msg.setStandardButtons(
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                )
+                msg.setDefaultButton(QMessageBox.StandardButton.No)
+                if msg.exec() != QMessageBox.StandardButton.Yes:
+                    return
+        # ─────────────────────────────────────────────────────────────────────
+
         try:
             conn = get_connection()
         except Exception as exc:  # pragma: no cover - affichage UI
@@ -1350,15 +1960,23 @@ class HomeWidget(QWidget):
             cur = conn.cursor()
 
             # Mise à jour de l'employeur
-            cur.execute(
-                """
+            # updated_at inclus si la colonne existe (migration 5 appliquée)
+            cur.execute("PRAGMA table_info(identification_employeurs)")
+            _ie_cols = {r[1] for r in cur.fetchall()}
+            _ie_has_updated_at = "updated_at" in _ie_cols
+
+            _ie_sql = """
                 UPDATE identification_employeurs
                 SET numero = ?, numero_cnps = ?, raison_sociale = ?,
                     secteur_activite = ?, nombre_travailleur = ?,
                     periodicite = ?, telephone_1 = ?, email_1 = ?,
-                    localites = ?, exercice = ?
+                    localites = ?, exercice = ?{updated_at_clause}
                 WHERE id = ?
-                """,
+            """.format(
+                updated_at_clause=", updated_at = datetime('now')" if _ie_has_updated_at else ""
+            )
+            cur.execute(
+                _ie_sql,
                 (
                     numero,
                     numero_cnps,
@@ -1452,6 +2070,7 @@ class HomeWidget(QWidget):
 
         QMessageBox.information(self, "Succès", "Enregistrement mis à jour avec succès.")
 
+        self._current_locked_td_id = None  # le dossier sauvegardé n'est plus verrouillé par nous
         # Notifie les autres onglets qu'une modification a eu lieu
         get_data_bus().data_changed.emit()
 
@@ -1479,6 +2098,7 @@ class HomeWidget(QWidget):
             QMessageBox.critical(self, "Erreur BD", f"Impossible d'ouvrir la base : {exc}")
             return
 
+        self._unlock_previous_row()
         with conn:
             conn.execute("DELETE FROM identification_employeurs WHERE id = ?", (employeur_id,))
 

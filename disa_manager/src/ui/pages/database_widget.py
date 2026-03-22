@@ -39,10 +39,10 @@ from ui.dashboard_theme import (
 # Styles réutilisables (complémentaires non présents dans dashboard_theme)
 # ---------------------------------------------------------------------------
 _STYLE_BTN_EXPORT = (
-    "QPushButton { background-color: #0369a1; color: white; border-radius: 5px; "
+    "QPushButton { background-color: #003f8a; color: white; border-radius: 5px; "
     "padding: 6px 14px; font-weight: 600; font-size: 12px; }"
-    "QPushButton:hover { background-color: #0284c7; }"
-    "QPushButton:pressed { background-color: #075985; }"
+    "QPushButton:hover { background-color: #0077c8; }"
+    "QPushButton:pressed { background-color: #002d66; }"
 )
 _STYLE_BTN_SUSPEND = (
     "QPushButton { background-color: #92400e; color: white; border-radius: 5px; "
@@ -59,29 +59,29 @@ _STYLE_BTN_REACTIVATE = (
 _STYLE_INPUT = (
     "QLineEdit { border: 1px solid #d1d5db; border-radius: 4px; padding: 5px 8px; "
     "font-size: 12px; background: white; color: #1f2937; }"
-    "QLineEdit:focus { border-color: #1e3a5f; border-width: 2px; }"
+    "QLineEdit:focus { border-color: #003f8a; border-width: 2px; }"
     "QLineEdit:placeholder { color: #9ca3af; }"
 )
 _STYLE_COMBO = (
     "QComboBox { border: 1px solid #d1d5db; border-radius: 4px; padding: 5px 24px 5px 8px; "
     "font-size: 12px; background: white; color: #1f2937; }"
-    "QComboBox:focus { border-color: #1e3a5f; border-width: 2px; }"
-    "QComboBox:hover { border-color: #93c5fd; }"
+    "QComboBox:focus { border-color: #003f8a; border-width: 2px; }"
+    "QComboBox:hover { border-color: #7ab8e8; }"
     "QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: right center; "
     "width: 20px; border: none; }"
     "QComboBox::down-arrow { width: 10px; height: 10px; }"
     "QComboBox QAbstractItemView { border: 1px solid #d1d5db; border-radius: 4px; "
     "background: white; color: #1f2937; outline: none; "
-    "selection-background-color: #dbeafe; selection-color: #1e3a5f; }"
+    "selection-background-color: #dbeafe; selection-color: #003f8a; }"
     "QComboBox QAbstractItemView::item { padding: 5px 10px; min-height: 28px; }"
-    "QComboBox QAbstractItemView::item:hover { background: #eff6ff; color: #1e3a5f; }"
+    "QComboBox QAbstractItemView::item:hover { background: #eff6ff; color: #003f8a; }"
 )
 _STYLE_TABLE = (
     "QTableWidget { border: 1px solid #e2e8f0; gridline-color: #f1f5f9; font-size: 12px; }"
     "QTableWidget::item { padding: 5px 8px; }"
-    "QTableWidget::item:selected { background-color: #dbeafe; color: #1e3a5f; }"
-    "QHeaderView::section { background-color: #1e3a5f; color: white; font-weight: 700; "
-    "padding: 7px 8px; border: none; border-right: 1px solid #2a4f80; }"
+    "QTableWidget::item:selected { background-color: #dbeafe; color: #003f8a; }"
+    "QHeaderView::section { background-color: #003f8a; color: white; font-weight: 700; "
+    "padding: 7px 8px; border: none; border-right: 1px solid #0077c8; }"
     "QTableWidget::item:alternate { background-color: #f8fafc; }"
 )
 
@@ -119,7 +119,7 @@ class EmployeurFormDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Employeur — Base de données")
         self.setMinimumWidth(420)
-        self._columns = [c for c in columns if c != "id"]
+        self._columns = [c for c in columns if c not in ("id", "updated_at", "created_at")]
         self._editors: Dict[str, QLineEdit] = {}
 
         layout = QVBoxLayout(self)
@@ -129,7 +129,7 @@ class EmployeurFormDialog(QDialog):
         # Titre interne
         header = QLabel("Informations employeur")
         header.setStyleSheet(
-            "font-size: 14px; font-weight: 700; color: #1e3a5f; padding-bottom: 4px;"
+            "font-size: 14px; font-weight: 700; color: #003f8a; padding-bottom: 4px;"
         )
         layout.addWidget(header)
 
@@ -222,7 +222,7 @@ class EmployersDatabaseWidget(QWidget):
         header_frame = QFrame()
         header_frame.setStyleSheet(
             "background: qlineargradient(x1:0,y1:0,x2:1,y2:0,"
-            "stop:0 #1e3a5f, stop:1 #2a4f80);"
+            "stop:0 #003f8a, stop:1 #0077c8);"
             "border-radius: 8px; padding: 10px 16px;"
         )
         header_layout = QHBoxLayout(header_frame)
@@ -278,7 +278,7 @@ class EmployersDatabaseWidget(QWidget):
         )
         self._filter_count_badge = QLabel()
         self._filter_count_badge.setStyleSheet(
-            "background-color: #1e3a5f; color: white; border-radius: 8px; "
+            "background-color: #003f8a; color: white; border-radius: 8px; "
             "padding: 1px 8px; font-size: 10px; font-weight: 700;"
         )
         self._filter_count_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -392,13 +392,21 @@ class EmployersDatabaseWidget(QWidget):
 
         # ── Sélecteurs de date ──────────────────────────────────────────
         _DATE_SENTINEL = QDate(2000, 1, 1)
+        import os as _os
+        _cal_icon = _os.path.join(
+            _os.path.dirname(__file__), "home", "icons", "calendar.svg"
+        ).replace("\\", "/")
         _STYLE_DATE = (
-            "QDateEdit { border: 1px solid #d1d5db; border-radius: 4px; padding: 5px 8px; "
-            "font-size: 12px; background: white; color: #1f2937; }"
-            "QDateEdit:focus { border-color: #1e3a5f; border-width: 2px; }"
-            "QDateEdit:hover { border-color: #93c5fd; }"
+            "QDateEdit { border: 1px solid #d1d5db; border-radius: 5px; padding: 4px 6px; "
+            "font-size: 12px; background: white; color: #1f2937; min-height: 22px; }"
+            "QDateEdit:focus { border: 1px solid #0077c8; background: #f0f7ff; }"
+            "QDateEdit:hover { border-color: #7ab8e8; }"
             "QDateEdit::drop-down { subcontrol-origin: padding; subcontrol-position: right center; "
-            "width: 20px; border: none; }"
+            "width: 28px; border-left: 1px solid #d1d5db; "
+            "border-top-right-radius: 5px; border-bottom-right-radius: 5px; "
+            "background: #e8f1fb; }"
+            "QDateEdit::drop-down:hover { background: #cce0f5; }"
+            f"QDateEdit::down-arrow {{ image: url({_cal_icon}); width: 15px; height: 15px; }}"
         )
 
         self.date_from_edit = QDateEdit()
@@ -634,7 +642,7 @@ class EmployersDatabaseWidget(QWidget):
             for label, value in active:
                 chip = QLabel(f"  {label}: {value}  ")
                 chip.setStyleSheet(
-                    "background-color: #dbeafe; color: #1e3a5f; border-radius: 10px; "
+                    "background-color: #dbeafe; color: #003f8a; border-radius: 10px; "
                     "font-size: 10px; font-weight: 700; padding: 2px 6px;"
                 )
                 self._active_filters_row.addWidget(chip)
@@ -1519,11 +1527,38 @@ class EmployersDatabaseWidget(QWidget):
             if db_row is None:
                 QMessageBox.warning(self, "Modification", "L'employeur sélectionné n'existe plus."); return
 
+            original_ie_updated_at = db_row["updated_at"] if "updated_at" in db_row.keys() else None
             current_data = {col: (None if v is None else str(v)) for col, v in zip(emp_cols, db_row)}
             dialog = EmployeurFormDialog(self, emp_cols, current_data)
             if dialog.exec() == QDialog.DialogCode.Accepted:
+                # Vérification anti-conflit
+                try:
+                    with get_connection() as _chk:
+                        _chk_row = _chk.execute(
+                            "SELECT updated_at FROM identification_employeurs WHERE id = ?",
+                            (emp_id,),
+                        ).fetchone()
+                    current_ie_updated_at = _chk_row["updated_at"] if _chk_row else None
+                except Exception:
+                    current_ie_updated_at = None
+
+                if (
+                    original_ie_updated_at is not None
+                    and current_ie_updated_at is not None
+                    and current_ie_updated_at != original_ie_updated_at
+                    and QMessageBox.warning(
+                        self,
+                        "Conflit de modification",
+                        "Cet employeur a été modifié par un autre utilisateur depuis que vous l'avez ouvert.\n"
+                        "Vos modifications écraseront les siennes.\n\nContinuer quand même ?",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.No,
+                    ) != QMessageBox.StandardButton.Yes
+                ):
+                    return
+
                 values = dialog.get_values()
-                set_clauses = [f"{col} = ?" for col in values]
+                set_clauses = [f"{col} = ?" for col in values] + ["updated_at = datetime('now')"]
                 params = list(values.values()) + [emp_id]
                 sql = "UPDATE identification_employeurs SET " + ", ".join(set_clauses) + " WHERE id = ?"
                 try:
@@ -1539,11 +1574,50 @@ class EmployersDatabaseWidget(QWidget):
         emp_id = self._get_selected_id()
         if emp_id is None:
             QMessageBox.warning(self, "Modification", "Impossible de récupérer l'identifiant."); return
+
+        # Récupérer updated_at depuis la BD avant d'ouvrir le dialogue
+        try:
+            with get_connection() as _pre:
+                _pre_row = _pre.execute(
+                    f"SELECT updated_at FROM {self._table_name} WHERE id = ?", (emp_id,)
+                ).fetchone()
+            original_updated_at = _pre_row["updated_at"] if _pre_row and "updated_at" in _pre_row.keys() else None
+        except Exception:
+            original_updated_at = None
+
         current_data = self._collect_row_data(row)
         dialog = EmployeurFormDialog(self, self._columns, current_data)
         if dialog.exec() == QDialog.DialogCode.Accepted:
+            # Vérification anti-conflit
+            try:
+                with get_connection() as _chk:
+                    _chk_row = _chk.execute(
+                        f"SELECT updated_at FROM {self._table_name} WHERE id = ?", (emp_id,)
+                    ).fetchone()
+                current_updated_at = _chk_row["updated_at"] if _chk_row and "updated_at" in _chk_row.keys() else None
+            except Exception:
+                current_updated_at = None
+
+            if (
+                original_updated_at is not None
+                and current_updated_at is not None
+                and current_updated_at != original_updated_at
+                and QMessageBox.warning(
+                    self,
+                    "Conflit de modification",
+                    "Cet enregistrement a été modifié par un autre utilisateur.\n"
+                    "Vos modifications écraseront les siennes.\n\nContinuer quand même ?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No,
+                ) != QMessageBox.StandardButton.Yes
+            ):
+                return
+
             values = dialog.get_values()
             set_clauses = [f"{col} = ?" for col in values]
+            # Mettre à jour updated_at si la colonne existe sur cette table
+            if original_updated_at is not None or current_updated_at is not None:
+                set_clauses.append("updated_at = datetime('now')")
             params = list(values.values()) + [emp_id]
             sql = f"UPDATE {self._table_name} SET " + ", ".join(set_clauses) + " WHERE id = ?"
             try:

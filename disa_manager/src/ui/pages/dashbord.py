@@ -40,6 +40,7 @@ class ChartWidget:
         self._detail_dialog: QDialog | None = None
         self._detail_label: QLabel | None = None
         self._animations: list[QPropertyAnimation] = []
+        self._last_data: dict = {}  # Cache des dernières données pour l'export
 
         # Filtres actifs (plage de dates — défaut : année en cours)
         _y = QDate.currentDate().year()
@@ -122,6 +123,19 @@ class ChartWidget:
         reset_btn.setStyleSheet(_BTN_QSS)
         reset_btn.clicked.connect(self._on_filter_reset)
         hbox.addWidget(reset_btn)
+
+        export_btn = QPushButton("⬇  Exporter Excel")
+        export_btn.setStyleSheet(
+            "QPushButton {"
+            "  background-color: #15803d; color: white; border-radius: 5px;"
+            "  padding: 5px 14px; font-size: 11px; font-weight: 600; border: none;"
+            "}"
+            "QPushButton:hover  { background-color: #16a34a; }"
+            "QPushButton:pressed { background-color: #0f5c2c; }"
+        )
+        export_btn.setToolTip("Exporter le tableau de bord dans un fichier Excel")
+        export_btn.clicked.connect(self._export_to_excel)
+        hbox.addWidget(export_btn)
 
         return bar
 
@@ -316,6 +330,7 @@ class ChartWidget:
         total_employeurs = 0
         lignes_traitees = 0
         lignes_non_traitees = 0
+        lignes_suspendues = 0
         localites: list[str] = []
         disa_restantes: list[int] = []
         disa_traitees_loc: list[int] = []
@@ -344,10 +359,20 @@ class ChartWidget:
                 cur.execute("SELECT COUNT(DISTINCT ie.id)" + base_from)
                 total_employeurs = cur.fetchone()[0] or 0
 
-                # DISA traitées / non traitées — filtrées via JOIN
+                # DISA suspendues (priorité sur le statut)
+                cur.execute(
+                    "SELECT COUNT(*) AS nb"
+                    + base_from_f
+                    + " WHERE COALESCE(td.is_suspended, 0) = 1",
+                    dparams,
+                )
+                lignes_suspendues = int((cur.fetchone() or [0])[0] or 0)
+
+                # DISA traitées / non traitées — hors suspendues, filtrées via JOIN
                 cur.execute(
                     "SELECT COALESCE(td.statut, 'NON TRAITÉ') AS s, COUNT(*) AS nb"
                     + base_from_f
+                    + " WHERE COALESCE(td.is_suspended, 0) = 0"
                     + " GROUP BY COALESCE(td.statut, 'NON TRAITÉ')",
                     dparams,
                 )
@@ -416,6 +441,26 @@ class ChartWidget:
         except Exception:
             logger.exception("Erreur lors du chargement des données du dashboard")
 
+        # ── Snapshot des données pour l'export Excel ──────────────────
+        total_disa = lignes_traitees + lignes_non_traitees + lignes_suspendues
+        taux = int(lignes_traitees / total_disa * 100) if total_disa > 0 else 0
+        self._last_data = {
+            "date_from": self._filter_date_from,
+            "date_to": self._filter_date_to,
+            "total_employeurs": total_employeurs,
+            "lignes_traitees": lignes_traitees,
+            "lignes_non_traitees": lignes_non_traitees,
+            "lignes_suspendues": lignes_suspendues,
+            "taux": taux,
+            "localites": localites,
+            "disa_restantes": disa_restantes,
+            "disa_traitees_loc": disa_traitees_loc,
+            "secteurs": secteurs,
+            "secteurs_nb": secteurs_nb,
+            "traite_par_users": traite_par_users,
+            "traite_par_nb": traite_par_nb,
+        }
+
         # ── Grille 4 colonnes ─────────────────────────────────────────
         layout.setHorizontalSpacing(10)
         layout.setVerticalSpacing(10)
@@ -427,9 +472,6 @@ class ChartWidget:
         layout.addWidget(self._make_filter_bar(), 0, 0, 1, 4)
 
         # ── LIGNE 1 : 4 cartes KPI ────────────────────────────────────
-        total_disa = lignes_traitees + lignes_non_traitees
-        taux = int(lignes_traitees / total_disa * 100) if total_disa > 0 else 0
-
         kpi_data = [
             ("Employeurs enregistrés", str(total_employeurs), "Dans la base",           _C_NAVY),
             ("DISA traitées",          str(lignes_traitees),  "Lignes validées",         _C_GREEN),
@@ -444,14 +486,26 @@ class ChartWidget:
 
         # ── LIGNE 2 : Camembert statut | Camembert par utilisateur ────
         pie_card, pie_card_lay = self._make_chart_card(
-            "Statut global des DISA", "Lignes traitées vs non traitées", delay_ms=100,
+            "Statut global des DISA", "Traitées / Non traitées / Suspendues", delay_ms=100,
         )
         pie_series = QPieSeries()
-        s_traite = pie_series.append(f"Traitées  ({lignes_traitees})", max(lignes_traitees, 1))
-        s_non    = pie_series.append(f"Non traitées  ({lignes_non_traitees})", max(lignes_non_traitees, 1))
-        s_traite.setColor(QColor(_C_BLUE));  s_traite.setBorderColor(QColor(_C_BLUE))
-        s_non.setColor(QColor(_C_AMBER));    s_non.setBorderColor(QColor(_C_AMBER))
-        s_traite.setExploded(True);          s_traite.setExplodeDistanceFactor(0.05)
+        _pie_slices = [
+            (f"Traitées  ({lignes_traitees})",     lignes_traitees,    _C_BLUE,   True),
+            (f"Non traitées  ({lignes_non_traitees})", lignes_non_traitees, _C_AMBER,  False),
+            (f"Suspendues  ({lignes_suspendues})",  lignes_suspendues,  "#64748b", False),
+        ]
+        first_nonzero = True
+        for label, val, color, _ in _pie_slices:
+            if val <= 0:
+                continue
+            sl = pie_series.append(label, val)
+            sl.setColor(QColor(color)); sl.setBorderColor(QColor(color))
+            if first_nonzero:
+                sl.setExploded(True); sl.setExplodeDistanceFactor(0.05)
+                first_nonzero = False
+        if pie_series.count() == 0:
+            sl = pie_series.append("Aucune donnée", 1)
+            sl.setColor(QColor(_BORDER)); sl.setBorderColor(QColor(_BORDER))
         pie_chart = self._base_chart()
         pie_chart.addSeries(pie_series)
         pie_chart.setMargins(QMargins(8, 4, 8, 4))
@@ -603,6 +657,262 @@ class ChartWidget:
         min_h_sect = max(200, len(secteurs) * 32 + 60)
         sect_card_lay.addWidget(self._styled_chart_view(sect_chart, min_h=min_h_sect))
         layout.addWidget(sect_card, 4, 0, 1, 4)
+
+    # ── Export Excel ─────────────────────────────────────────────────────────
+
+    def _export_to_excel(self) -> None:
+        """Génère un rapport Excel multi-feuilles à partir des données du dashboard."""
+        from datetime import datetime
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+        if not self._last_data:
+            QMessageBox.warning(None, "Export", "Aucune donnée à exporter. Ouvrez d'abord le tableau de bord.")
+            return
+
+        default_name = f"Rapport_DiSA_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx"
+        path, _ = QFileDialog.getSaveFileName(
+            None,
+            "Enregistrer le rapport Excel",
+            default_name,
+            "Fichier Excel (*.xlsx)",
+        )
+        if not path:
+            return
+
+        try:
+            import openpyxl
+            from openpyxl.styles import PatternFill, Font, Alignment, Border, Side, numbers
+            from openpyxl.utils import get_column_letter
+        except ImportError:
+            QMessageBox.critical(None, "Dépendance manquante", "openpyxl n'est pas installé.\nExécutez : pip install openpyxl")
+            return
+
+        d = self._last_data
+        now_str = datetime.now().strftime("%d/%m/%Y à %H:%M")
+        period = f"Du {d['date_from']} au {d['date_to']}"
+
+        # ── Styles communs ──────────────────────────────────────────────────
+        NAVY    = "1E3A5F"
+        NAVY2   = "2A4F80"
+        GREEN   = "15803D"
+        AMBER   = "B45309"
+        BLUE    = "1D4ED8"
+        WHITE   = "FFFFFF"
+        LIGHT   = "F0F4FB"
+        GREY    = "F3F4F6"
+        BORDER_C = "CBD5E1"
+
+        def _fill(hex_color: str) -> PatternFill:
+            return PatternFill("solid", fgColor=hex_color)
+
+        def _font(bold=False, color=None, size=11) -> Font:
+            return Font(bold=bold, color=color or "111827", size=size)
+
+        def _border() -> Border:
+            thin = Side(style="thin", color=BORDER_C)
+            return Border(left=thin, right=thin, top=thin, bottom=thin)
+
+        def _center(wrap=False) -> Alignment:
+            return Alignment(horizontal="center", vertical="center", wrap_text=wrap)
+
+        def _left(wrap=False) -> Alignment:
+            return Alignment(horizontal="left", vertical="center", wrap_text=wrap)
+
+        def _apply_header_row(ws, row: int, values: list[str], widths: list[int]) -> None:
+            """Écrit une ligne d'en-tête bleue."""
+            for col, (val, w) in enumerate(zip(values, widths), start=1):
+                cell = ws.cell(row=row, column=col, value=val)
+                cell.fill = _fill(NAVY)
+                cell.font = _font(bold=True, color=WHITE, size=10)
+                cell.alignment = _center()
+                cell.border = _border()
+                ws.column_dimensions[get_column_letter(col)].width = w
+
+        def _apply_data_row(ws, row: int, values: list, even: bool, formats=None) -> None:
+            """Écrit une ligne de données alternée blanc/gris clair."""
+            bg = LIGHT if even else WHITE
+            for col, val in enumerate(values, start=1):
+                cell = ws.cell(row=row, column=col, value=val)
+                cell.fill = _fill(bg)
+                cell.font = _font(size=10)
+                cell.alignment = _center() if isinstance(val, (int, float)) else _left()
+                cell.border = _border()
+                if formats and col <= len(formats) and formats[col - 1]:
+                    cell.number_format = formats[col - 1]
+
+        def _title_block(ws, title: str, subtitle: str, period_str: str, generated: str) -> None:
+            """Bloc titre en haut de chaque feuille."""
+            ws.merge_cells("A1:F1")
+            t = ws["A1"]
+            t.value = f"IPS-CNPS — Agence de Gagnoa  |  {title}"
+            t.fill = _fill(NAVY)
+            t.font = _font(bold=True, color=WHITE, size=14)
+            t.alignment = _center()
+
+            ws.merge_cells("A2:F2")
+            s = ws["A2"]
+            s.value = subtitle
+            s.fill = _fill(NAVY2)
+            s.font = _font(color=WHITE, size=10)
+            s.alignment = _center()
+
+            ws.merge_cells("A3:C3")
+            ws["A3"].value = f"Période : {period_str}"
+            ws["A3"].fill = _fill(GREY)
+            ws["A3"].font = _font(bold=True, size=10)
+            ws["A3"].alignment = _left()
+
+            ws.merge_cells("D3:F3")
+            ws["D3"].value = f"Généré le : {generated}"
+            ws["D3"].fill = _fill(GREY)
+            ws["D3"].font = _font(size=10)
+            ws["D3"].alignment = _center()
+
+            ws.row_dimensions[1].height = 26
+            ws.row_dimensions[2].height = 18
+            ws.row_dimensions[3].height = 16
+
+        wb = openpyxl.Workbook()
+
+        # ══════════════════════════════════════════════════════════════════════
+        # FEUILLE 1 — Synthèse
+        # ══════════════════════════════════════════════════════════════════════
+        ws1 = wb.active
+        ws1.title = "Synthèse"
+        ws1.sheet_view.showGridLines = False
+
+        _title_block(ws1, "Tableau de Bord DiSA", "Synthèse des indicateurs clés", period, now_str)
+
+        # KPI table
+        ws1.row_dimensions[5].height = 14
+        _apply_header_row(ws1, 6, ["Indicateur", "Valeur", "Description"], [32, 18, 40])
+
+        kpi_rows = [
+            ("Employeurs enregistrés",  d["total_employeurs"],    "Nombre total d'employeurs dans la base"),
+            ("DISA traitées",           d["lignes_traitees"],     "Dossiers validés sur la période"),
+            ("DISA non traitées",       d["lignes_non_traitees"], "Dossiers restants à traiter"),
+            ("Taux de traitement",      f"{d['taux']} %",         "Part des DISA traitées / total"),
+        ]
+        for i, (ind, val, desc) in enumerate(kpi_rows, start=7):
+            even = (i % 2 == 0)
+            _apply_data_row(ws1, i, [ind, val, desc], even)
+            # Coloriser la valeur selon l'indicateur
+            val_cell = ws1.cell(row=i, column=2)
+            if "traitées" in ind.lower() and "non" not in ind.lower():
+                val_cell.font = _font(bold=True, color=GREEN, size=11)
+            elif "non" in ind.lower():
+                val_cell.font = _font(bold=True, color=AMBER, size=11)
+            elif "taux" in ind.lower():
+                val_cell.font = _font(bold=True, color=BLUE, size=11)
+            else:
+                val_cell.font = _font(bold=True, color=NAVY, size=11)
+            val_cell.alignment = _center()
+
+        # Note de bas de page
+        note_row = 7 + len(kpi_rows) + 2
+        ws1.merge_cells(f"A{note_row}:F{note_row}")
+        note = ws1[f"A{note_row}"]
+        note.value = "Rapport généré automatiquement par DisaManager — CNPS Gagnoa"
+        note.font = Font(italic=True, color="6B7280", size=9)
+        note.alignment = _left()
+
+        # ══════════════════════════════════════════════════════════════════════
+        # FEUILLE 2 — Par localité
+        # ══════════════════════════════════════════════════════════════════════
+        ws2 = wb.create_sheet("Par localité")
+        ws2.sheet_view.showGridLines = False
+        _title_block(ws2, "DISA par Localité", "Répartition des dossiers par localité d'employeur", period, now_str)
+
+        ws2.row_dimensions[5].height = 14
+        _apply_header_row(ws2, 6,
+            ["Localité", "DISA restantes", "DISA traitées", "Total", "Taux (%)"],
+            [28, 18, 18, 14, 14],
+        )
+        locs = d["localites"] or ["Aucune donnée"]
+        reste = d["disa_restantes"] or [0]
+        traite = d["disa_traitees_loc"] or [0]
+        for i, (loc, r, t) in enumerate(zip(locs, reste, traite), start=7):
+            total = r + t
+            tx = f"{int(t / total * 100)} %" if total > 0 else "—"
+            _apply_data_row(ws2, i, [loc, r, t, total, tx], i % 2 == 0)
+            # Coloriser DISA traitées en vert
+            ws2.cell(row=i, column=3).font = _font(bold=True, color=GREEN, size=10)
+
+        # Ligne total
+        total_row = 7 + len(locs)
+        ws2.cell(row=total_row, column=1).value = "TOTAL"
+        ws2.cell(row=total_row, column=1).font = _font(bold=True, color=WHITE, size=10)
+        ws2.cell(row=total_row, column=1).fill = _fill(NAVY)
+        ws2.cell(row=total_row, column=1).alignment = _center()
+        ws2.cell(row=total_row, column=2).value = sum(reste)
+        ws2.cell(row=total_row, column=2).fill = _fill(NAVY); ws2.cell(row=total_row, column=2).font = _font(bold=True, color=WHITE, size=10); ws2.cell(row=total_row, column=2).alignment = _center()
+        ws2.cell(row=total_row, column=3).value = sum(traite)
+        ws2.cell(row=total_row, column=3).fill = _fill(NAVY); ws2.cell(row=total_row, column=3).font = _font(bold=True, color=WHITE, size=10); ws2.cell(row=total_row, column=3).alignment = _center()
+        ws2.cell(row=total_row, column=4).value = sum(reste) + sum(traite)
+        ws2.cell(row=total_row, column=4).fill = _fill(NAVY); ws2.cell(row=total_row, column=4).font = _font(bold=True, color=WHITE, size=10); ws2.cell(row=total_row, column=4).alignment = _center()
+        grand_total = sum(reste) + sum(traite)
+        grand_taux = f"{int(sum(traite) / grand_total * 100)} %" if grand_total > 0 else "—"
+        ws2.cell(row=total_row, column=5).value = grand_taux
+        ws2.cell(row=total_row, column=5).fill = _fill(NAVY); ws2.cell(row=total_row, column=5).font = _font(bold=True, color=WHITE, size=10); ws2.cell(row=total_row, column=5).alignment = _center()
+
+        # ══════════════════════════════════════════════════════════════════════
+        # FEUILLE 3 — Par secteur
+        # ══════════════════════════════════════════════════════════════════════
+        ws3 = wb.create_sheet("Par secteur")
+        ws3.sheet_view.showGridLines = False
+        _title_block(ws3, "Employeurs par Secteur", "Répartition des employeurs par secteur d'activité", period, now_str)
+
+        ws3.row_dimensions[5].height = 14
+        _apply_header_row(ws3, 6, ["Secteur d'activité", "Nb employeurs", "Part (%)"], [36, 16, 14])
+        sects = d["secteurs"] or ["Aucune donnée"]
+        sects_nb = d["secteurs_nb"] or [0]
+        total_sect = sum(sects_nb) or 1
+        for i, (sect, nb) in enumerate(zip(sects, sects_nb), start=7):
+            part = f"{round(nb / total_sect * 100, 1)} %"
+            _apply_data_row(ws3, i, [sect, nb, part], i % 2 == 0)
+
+        # ══════════════════════════════════════════════════════════════════════
+        # FEUILLE 4 — Par agent
+        # ══════════════════════════════════════════════════════════════════════
+        ws4 = wb.create_sheet("Par agent")
+        ws4.sheet_view.showGridLines = False
+        _title_block(ws4, "Traitements par Agent", "Nombre de DISA traitées par agent sur la période", period, now_str)
+
+        ws4.row_dimensions[5].height = 14
+        _apply_header_row(ws4, 6, ["Agent", "DISA traitées", "Part (%)"], [30, 16, 14])
+        users = d["traite_par_users"] or []
+        nbs   = d["traite_par_nb"] or []
+        total_agents = sum(nbs) or 1
+        for i, (user, nb) in enumerate(zip(users, nbs), start=7):
+            part = f"{round(nb / total_agents * 100, 1)} %"
+            _apply_data_row(ws4, i, [user, nb, part], i % 2 == 0)
+
+        if not users:
+            ws4.cell(row=7, column=1).value = "Aucune donnée disponible"
+            ws4.cell(row=7, column=1).font = Font(italic=True, color="6B7280", size=10)
+
+        # ── Enregistrement ──────────────────────────────────────────────────
+        try:
+            wb.save(path)
+        except Exception as exc:
+            QMessageBox.critical(None, "Erreur d'enregistrement", f"Impossible d'écrire le fichier :\n{exc}")
+            return
+
+        reply = QMessageBox.information(
+            None,
+            "Export réussi",
+            f"Rapport Excel généré :\n{path}\n\nVoulez-vous l'ouvrir ?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            import sys, subprocess, os
+            if sys.platform == "darwin":
+                subprocess.run(["open", path], check=False)
+            elif sys.platform == "win32":
+                os.startfile(path)  # type: ignore[attr-defined]
+            else:
+                subprocess.run(["xdg-open", path], check=False)
 
     # ── Responsive fonts ──────────────────────────────────────────────────────
 

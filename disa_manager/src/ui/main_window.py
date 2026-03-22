@@ -482,7 +482,7 @@ class MainWindow(QMainWindow):
         lbl_phone = QLabel("📞  07 77 14 51 87")
         lbl_phone.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl_phone.setStyleSheet(
-            "font-size: 18px; font-weight: 700; color: #1e3a5f;"
+            "font-size: 18px; font-weight: 700; color: #003f8a;"
             " letter-spacing: 1px; background: transparent; border: none;"
             " font-family: 'Segoe UI', Helvetica, Arial, sans-serif;"
         )

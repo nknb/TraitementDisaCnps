@@ -11,12 +11,30 @@ if getattr(sys, "frozen", False):
     #   - SCHEMA_PATH : dans _MEIPASS (bundle en lecture seule)
     _EXE_DIR    = Path(sys.executable).parent
     _BUNDLE_DIR = Path(sys._MEIPASS)  # type: ignore[attr-defined]
-    DB_PATH     = _EXE_DIR    / "data" / "disa.db"
-    SCHEMA_PATH = _BUNDLE_DIR / "db"   / "schema.sql"
+    _ROOT       = _EXE_DIR
+    SCHEMA_PATH = _BUNDLE_DIR / "db" / "schema.sql"
 else:
-    PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-    DB_PATH      = PROJECT_ROOT / "data" / "disa.db"
-    SCHEMA_PATH  = PROJECT_ROOT / "db"   / "schema.sql"
+    _ROOT       = Path(__file__).resolve().parent.parent.parent
+    SCHEMA_PATH = _ROOT / "db" / "schema.sql"
+
+
+def _resolve_db_path() -> Path:
+    """Lit disa.conf (clé DB_PATH=) ; retourne le chemin local par défaut sinon.
+
+    Même logique que connection.py — garantit que init_db() et get_connection()
+    ciblent toujours la même base de données (réseau ou locale).
+    """
+    conf_path = _ROOT / "disa.conf"
+    if conf_path.exists():
+        for line in conf_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line.startswith("DB_PATH="):
+                if raw := line[len("DB_PATH="):].strip():
+                    return Path(raw)
+    return _ROOT / "data" / "disa.db"
+
+
+DB_PATH: Path = _resolve_db_path()
 
 
 # ---------------------------------------------------------------------------
@@ -56,6 +74,22 @@ _MIGRATIONS: list[tuple[int, str, list[str]]] = [
         "Colonne is_suspended dans traitement_disa (suspension d'entreprise)",
         [
             "ALTER TABLE traitement_disa ADD COLUMN is_suspended INTEGER NOT NULL DEFAULT 0",
+        ],
+    ),
+    (
+        6,
+        "Soft lock multi-utilisateurs sur traitement_disa (locked_by, locked_at)",
+        [
+            "ALTER TABLE traitement_disa ADD COLUMN locked_by TEXT",
+            "ALTER TABLE traitement_disa ADD COLUMN locked_at TEXT",
+        ],
+    ),
+    (
+        5,
+        "Colonne updated_at dans identification_employeurs (détection de conflits multi-utilisateurs)",
+        [
+            "ALTER TABLE identification_employeurs ADD COLUMN updated_at TEXT",
+            "UPDATE identification_employeurs SET updated_at = datetime('now') WHERE updated_at IS NULL",
         ],
     ),
     (
@@ -172,33 +206,43 @@ def _verify_pbkdf2(password: str, stored: str) -> bool:
 def verify_password(password: str, stored: str) -> bool:
     """Vérifie un mot de passe contre son hash stocké.
 
-    Supporte :
-    - format PBKDF2 : ``pbkdf2:sha256:<iterations>:<salt_hex>:<hash_hex>``
-    - ancien format SHA-256 brut (64 hex) — migration transparente
+    Supporte trois formats (par ordre de priorité) :
+    1. PBKDF2 direct   : pbkdf2:sha256:<iter>:<salt>:<hash>  (mot de passe en clair → PBKDF2)
+    2. PBKDF2 indirect : pbkdf2:sha256:<iter>:<salt>:<hash>  (SHA-256 brut → PBKDF2, bug migration)
+    3. SHA-256 brut    : 64 hex — ancienne version
     """
     import hashlib
     import hmac
     if stored.startswith("pbkdf2:sha256:"):
-        return _verify_pbkdf2(password, stored)
-    # Fallback : ancien hash SHA-256 brut (sera migré au prochain démarrage)
+        # Cas 1 : PBKDF2 du mot de passe en clair (migration correcte)
+        if _verify_pbkdf2(password, stored):
+            return True
+        # Cas 2 : PBKDF2 du SHA-256 brut (bug de double-hachage lors de la migration)
+        legacy_hex = hashlib.sha256(password.encode("utf-8")).hexdigest()
+        return _verify_pbkdf2(legacy_hex, stored)
+    # Cas 3 : ancien hash SHA-256 brut (sera migré au prochain démarrage)
     legacy = hashlib.sha256(password.encode("utf-8")).hexdigest()
     return hmac.compare_digest(legacy, stored)
 
 
 def _hash_plain_passwords(conn: sqlite3.Connection) -> None:
-    """Migre les mots de passe vers PBKDF2-SHA256.
+    """Migre les mots de passe vers PBKDF2-SHA256 (texte clair direct).
 
-    - Texte clair           → haché en PBKDF2
-    - Ancien SHA-256 brut   → re-haché en PBKDF2
-    - Déjà en PBKDF2        → ignoré (idempotent)
+    - Texte clair           → PBKDF2(texte_clair)
+    - SHA-256 brut          → ignoré (impossible de retrouver le texte clair)
+    - PBKDF2 double-haché   → ignoré (verify_password gère le fallback)
+    - Déjà en PBKDF2 direct → ignoré (idempotent)
     """
     cur = conn.cursor()
     cur.execute("SELECT id, password FROM utilisateurs")
     updates: list[tuple[str, int]] = []
     for row_id, pwd in cur.fetchall():
         pwd_str = str(pwd) if pwd is not None else ""
+        # Sauter les formats déjà sécurisés ou non-récupérables
         if pwd_str.startswith("pbkdf2:sha256:"):
-            continue  # déjà au bon format
+            continue
+        if len(pwd_str) == 64 and all(c in "0123456789abcdef" for c in pwd_str):
+            continue  # SHA-256 brut : texte clair inconnu, on ne peut pas migrer
         hashed = _pbkdf2_hash(pwd_str)
         updates.append((hashed, row_id))
 

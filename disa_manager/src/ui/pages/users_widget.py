@@ -147,7 +147,7 @@ class UsersWidget(QWidget):
             "  border-top-left-radius: 6px; border-top-right-radius: 6px;"
             "  margin-right: 2px;"
             "}"
-            "QTabBar::tab:selected { background: #1e3a5f; color: white; }"
+            "QTabBar::tab:selected { background: #003f8a; color: white; }"
             "QTabBar::tab:hover:!selected { background: #cbd5e1; }"
         )
 
@@ -174,7 +174,7 @@ class UsersWidget(QWidget):
         header = QFrame()
         header.setStyleSheet(
             "QFrame { background: qlineargradient(x1:0,y1:0,x2:1,y2:0,"
-            "stop:0 #1e3a5f, stop:1 #2a4f80); }"
+            "stop:0 #003f8a, stop:1 #0077c8); }"
         )
         h_box = QHBoxLayout(header)
         h_box.setContentsMargins(20, 14, 20, 14)
@@ -254,13 +254,13 @@ class UsersWidget(QWidget):
             "}"
             "QTableWidget::item { padding: 8px 12px; border: none; }"
             "QTableWidget::item:selected {"
-            "  background: #dbeafe; color: #1e3a5f; border: none;"
+            "  background: #dbeafe; color: #003f8a; border: none;"
             "}"
             "QHeaderView::section {"
-            "  background: #1e3a5f; color: white; font-weight: 700;"
+            "  background: #003f8a; color: white; font-weight: 700;"
             "  font-size: 12px; padding: 8px 12px; border: none;"
             "}"
-            "QTableWidget QTableCornerButton::section { background: #1e3a5f; }"
+            "QTableWidget QTableCornerButton::section { background: #003f8a; }"
             "QTableWidget::item:alternate { background: #f1f5f9; }"
         )
         self.table.verticalHeader().setDefaultSectionSize(42)
@@ -307,7 +307,7 @@ class UsersWidget(QWidget):
         header = QFrame()
         header.setStyleSheet(
             "QFrame { background: qlineargradient(x1:0,y1:0,x2:1,y2:0,"
-            "stop:0 #1e3a5f, stop:1 #2a4f80); }"
+            "stop:0 #003f8a, stop:1 #0077c8); }"
         )
         h_box = QHBoxLayout(header)
         h_box.setContentsMargins(20, 14, 20, 14)
@@ -377,7 +377,7 @@ class UsersWidget(QWidget):
 
         network_group = QGroupBox("Serveur partagé (réseau)")
         network_group.setStyleSheet(
-            "QGroupBox { font-weight: 700; font-size: 13px; color: #1e3a5f;"
+            "QGroupBox { font-weight: 700; font-size: 13px; color: #003f8a;"
             " border: 1px solid #cbd5e1; border-radius: 8px; margin-top: 8px;"
             " background: white; }"
             "QGroupBox::title { subcontrol-origin: margin; left: 12px;"
@@ -423,9 +423,9 @@ class UsersWidget(QWidget):
         btn_reseau = QPushButton("reseau")
         for btn in (btn_accueil, btn_reseau):
             btn.setStyleSheet(
-                "QPushButton { background: #e0e7ff; color: #3730a3; border-radius: 4px;"
+                "QPushButton { background: #dce8f5; color: #003f8a; border-radius: 4px;"
                 " padding: 3px 10px; font-size: 11px; font-weight: 600; }"
-                "QPushButton:hover { background: #c7d2fe; }"
+                "QPushButton:hover { background: #b3d5f0; }"
             )
             btn.setMaximumHeight(26)
         btn_accueil.clicked.connect(
@@ -445,7 +445,7 @@ class UsersWidget(QWidget):
         # ── Groupe : Local ────────────────────────────────────────────────
         local_group = QGroupBox("Local (sur cet ordinateur)")
         local_group.setStyleSheet(
-            "QGroupBox { font-weight: 700; font-size: 13px; color: #1e3a5f;"
+            "QGroupBox { font-weight: 700; font-size: 13px; color: #003f8a;"
             " border: 1px solid #cbd5e1; border-radius: 8px; margin-top: 8px;"
             " background: white; }"
             "QGroupBox::title { subcontrol-origin: margin; left: 12px;"
@@ -883,7 +883,7 @@ class UsersWidget(QWidget):
                 f = user_item.font()
                 f.setBold(True)
                 user_item.setFont(f)
-                user_item.setForeground(QColor("#1e3a5f"))
+                user_item.setForeground(QColor("#003f8a"))
             self.table.setItem(row_idx, 1, user_item)
 
             role_item = QTableWidgetItem(f"  {role.upper()}  ")
@@ -894,7 +894,7 @@ class UsersWidget(QWidget):
             role_item.setFont(rf)
             if role == "admin":
                 role_item.setForeground(QColor("#ffffff"))
-                role_item.setBackground(QColor("#1e3a5f"))
+                role_item.setBackground(QColor("#003f8a"))
             else:
                 role_item.setForeground(QColor("#ffffff"))
                 role_item.setBackground(QColor("#15803d"))

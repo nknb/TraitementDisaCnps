@@ -54,7 +54,7 @@ class Ui_Form(object):
 #info_frame QLineEdit:focus,
 #info_frame QComboBox:focus,
 #info_frame QDateEdit:focus {
-    border: 2px solid #2563eb;
+    border: 2px solid #003f8a;
     background-color: #ffffff;
 }
 
@@ -88,14 +88,14 @@ QDateEdit::drop-down {
 
 /* ── En-tête du tableau ──────────────────────────────── */
 QHeaderView::section {
-    background-color: #1e3a5f;
+    background-color: #003f8a;
     color: #ffffff;
     font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
     font-size: 11px;
     font-weight: 700;
     border: none;
-    border-right: 1px solid #2d4f7a;
-    border-bottom: 2px solid #3b82f6;
+    border-right: 1px solid #0077c8;
+    border-bottom: 2px solid #0077c8;
     padding: 7px 8px;
     text-align: left;
 }
@@ -113,7 +113,7 @@ QTableWidget::item {
 }
 QTableWidget::item:selected {
     background-color: #dbeafe;
-    color: #1e40af;
+    color: #003f8a;
 }
 QTableWidget::item:hover {
     background-color: #eff6ff;
@@ -128,13 +128,13 @@ QTableWidget::item:hover {
     border: none;
     border-radius: 8px;
     color: #ffffff;
-    background-color: #2563eb;
+    background-color: #003f8a;
 }
 #function_frame QPushButton:hover {
-    background-color: #1d4ed8;
+    background-color: #0077c8;
 }
 #function_frame QPushButton:pressed {
-    background-color: #1e40af;
+    background-color: #002d66;
 }
 
 /* Ajouter → vert */
@@ -148,12 +148,12 @@ QTableWidget::item:hover {
     background-color: #065f46;
 }
 
-/* Mettre à jour → bleu indigo */
+/* Mettre à jour → bleu CNPS */
 #function_frame #update_btn {
-    background-color: #4f46e5;
+    background-color: #0077c8;
 }
 #function_frame #update_btn:hover {
-    background-color: #4338ca;
+    background-color: #003f8a;
 }
 
 /* Effacer → gris ardoise */
@@ -184,7 +184,7 @@ QTableWidget::item:hover {
         self.frame_3.setObjectName("frame_3")
         self.frame_3.setStyleSheet(
             "QFrame { background: qlineargradient(x1:0,y1:0,x2:1,y2:0,"
-            "stop:0 #1e3a5f, stop:1 #2a4f80);"
+            "stop:0 #003f8a, stop:1 #0077c8);"
             "border-radius: 8px; }"
         )
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout(self.frame_3)
