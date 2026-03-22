@@ -1055,92 +1055,98 @@ class EmployersDatabaseWidget(QWidget):
             )
             return
 
-        self.table.setRowCount(len(rows))
-        statut_col_index = (
-            self._columns.index("statut")
-            if self._table_name in ("traitement_disa", "join_employeur_traitement") and "statut" in self._columns
-            else -1
-        )
-        suspended_col_index = (
-            self._columns.index("is_suspended")
-            if "is_suspended" in self._columns
-            else -1
-        )
-
-        for row_index, row in enumerate(rows):
-            bg_color = None
-            fg_color = QColor("white")
-            etat_text = ""
-            etat_icon: QIcon | None = None
-            is_suspended_val = False
-
-            if statut_col_index != -1:
-                try:
-                    row_statut = str(row[statut_col_index] or "")
-                except Exception:
-                    row_statut = ""
-                upper = row_statut.upper()
-                if "NON" in upper and "TRAIT" in upper:
-                    bg_color = QColor("#fee2e2"); fg_color = QColor("#991b1b")
-                    etat_text = "⊘  Non traité"
-                    etat_icon = QIcon(":/icon/icon/close-window-64.ico")
-                elif "REJET" in upper:
-                    bg_color = QColor("#fef3c7"); fg_color = QColor("#92400e")
-                    etat_text = "⚠  Avec rejets"
-                    etat_icon = QIcon(":/icon/icon/activity-feed-32.ico")
-                elif "VALID" in upper or "TRAIT" in upper:
-                    bg_color = QColor("#dcfce7"); fg_color = QColor("#14532d")
-                    etat_text = "✔  Validé"
-                    etat_icon = QIcon(":/icon/icon/dashboard-5-32.ico")
-                else:
-                    etat_text = row_statut
-
-            if suspended_col_index != -1:
-                try:
-                    is_suspended_val = bool(int(row[suspended_col_index] or 0))
-                except (TypeError, ValueError):
-                    is_suspended_val = False
-
-            # Colonne 0 : case à cocher
-            cb_item = QTableWidgetItem()
-            cb_item.setFlags(
-                Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled
+        self.table.setUpdatesEnabled(False)   # bloque tous les repaints intermédiaires
+        self.table.blockSignals(True)          # bloque itemChanged et autres signaux
+        try:
+            self.table.setRowCount(len(rows))
+            statut_col_index = (
+                self._columns.index("statut")
+                if self._table_name in ("traitement_disa", "join_employeur_traitement") and "statut" in self._columns
+                else -1
             )
-            cb_item.setCheckState(Qt.CheckState.Unchecked)
-            cb_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.table.setItem(row_index, 0, cb_item)
+            suspended_col_index = (
+                self._columns.index("is_suspended")
+                if "is_suspended" in self._columns
+                else -1
+            )
 
-            for col_index, value in enumerate(row):
-                # Afficher "Oui"/"Non" pour la colonne is_suspended
-                if col_index == suspended_col_index:
-                    text = "Oui" if bool(int(value or 0)) else "Non"
-                else:
-                    text = "" if value is None else str(value)
-                item = QTableWidgetItem(text)
-                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                if self._id_index != -1 and col_index == self._id_index:
-                    item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                if col_index == suspended_col_index:
-                    item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                    if is_suspended_val:
-                        item.setForeground(QColor("#b45309"))
-                        item.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+            for row_index, row in enumerate(rows):
+                bg_color = None
+                fg_color = QColor("white")
+                etat_text = ""
+                etat_icon: QIcon | None = None
+                is_suspended_val = False
+
+                if statut_col_index != -1:
+                    try:
+                        row_statut = str(row[statut_col_index] or "")
+                    except Exception:
+                        row_statut = ""
+                    upper = row_statut.upper()
+                    if "NON" in upper and "TRAIT" in upper:
+                        bg_color = QColor("#fee2e2"); fg_color = QColor("#991b1b")
+                        etat_text = "⊘  Non traité"
+                        etat_icon = QIcon(":/icon/icon/close-window-64.ico")
+                    elif "REJET" in upper:
+                        bg_color = QColor("#fef3c7"); fg_color = QColor("#92400e")
+                        etat_text = "⚠  Avec rejets"
+                        etat_icon = QIcon(":/icon/icon/activity-feed-32.ico")
+                    elif "VALID" in upper or "TRAIT" in upper:
+                        bg_color = QColor("#dcfce7"); fg_color = QColor("#14532d")
+                        etat_text = "✔  Validé"
+                        etat_icon = QIcon(":/icon/icon/dashboard-5-32.ico")
                     else:
-                        item.setForeground(QColor("#15803d"))
-                elif bg_color is not None and statut_col_index != -1:
-                    item.setBackground(bg_color)
-                    item.setForeground(fg_color)
-                self.table.setItem(row_index, col_index + 1, item)  # +1 : offset checkbox
+                        etat_text = row_statut
 
-            if self._table_name in ("traitement_disa", "join_employeur_traitement"):
-                etat_item = QTableWidgetItem(etat_text)
-                etat_item.setFlags(etat_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
-                if etat_icon is not None:
-                    etat_item.setIcon(etat_icon)
-                if bg_color is not None:
-                    etat_item.setBackground(bg_color)
-                    etat_item.setForeground(fg_color)
-                self.table.setItem(row_index, len(self._columns) + 1, etat_item)
+                if suspended_col_index != -1:
+                    try:
+                        is_suspended_val = bool(int(row[suspended_col_index] or 0))
+                    except (TypeError, ValueError):
+                        is_suspended_val = False
+
+                # Colonne 0 : case à cocher
+                cb_item = QTableWidgetItem()
+                cb_item.setFlags(
+                    Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled
+                )
+                cb_item.setCheckState(Qt.CheckState.Unchecked)
+                cb_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.table.setItem(row_index, 0, cb_item)
+
+                for col_index, value in enumerate(row):
+                    # Afficher "Oui"/"Non" pour la colonne is_suspended
+                    if col_index == suspended_col_index:
+                        text = "Oui" if bool(int(value or 0)) else "Non"
+                    else:
+                        text = "" if value is None else str(value)
+                    item = QTableWidgetItem(text)
+                    item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                    if self._id_index != -1 and col_index == self._id_index:
+                        item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                    if col_index == suspended_col_index:
+                        item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                        if is_suspended_val:
+                            item.setForeground(QColor("#b45309"))
+                            item.setFont(QFont("Segoe UI", 10, QFont.Weight.Bold))
+                        else:
+                            item.setForeground(QColor("#15803d"))
+                    elif bg_color is not None and statut_col_index != -1:
+                        item.setBackground(bg_color)
+                        item.setForeground(fg_color)
+                    self.table.setItem(row_index, col_index + 1, item)  # +1 : offset checkbox
+
+                if self._table_name in ("traitement_disa", "join_employeur_traitement"):
+                    etat_item = QTableWidgetItem(etat_text)
+                    etat_item.setFlags(etat_item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+                    if etat_icon is not None:
+                        etat_item.setIcon(etat_icon)
+                    if bg_color is not None:
+                        etat_item.setBackground(bg_color)
+                        etat_item.setForeground(fg_color)
+                    self.table.setItem(row_index, len(self._columns) + 1, etat_item)
+        finally:
+            self.table.blockSignals(False)
+            self.table.setUpdatesEnabled(True)   # 1 seul repaint ici
 
         # Mettre à jour le bouton Suspendre selon la ligne sélectionnée
         self._update_suspend_button()
@@ -1479,7 +1485,7 @@ class EmployersDatabaseWidget(QWidget):
                 except Exception as exc:
                     QMessageBox.critical(self, "Erreur base de données", str(exc)); return
                 self._load_filters(); self._refresh_table()
-                get_data_bus().data_changed.emit()
+                get_data_bus().notify()
             return
 
         dialog = EmployeurFormDialog(self, self._columns)
@@ -1568,7 +1574,7 @@ class EmployersDatabaseWidget(QWidget):
                 except Exception as exc:
                     QMessageBox.critical(self, "Erreur base de données", str(exc)); return
                 self._load_filters(); self._refresh_table()
-                get_data_bus().data_changed.emit()
+                get_data_bus().notify()
             return
 
         emp_id = self._get_selected_id()
@@ -1740,7 +1746,7 @@ class EmployersDatabaseWidget(QWidget):
             f"L'entreprise a bien été {label_past}."
         )
         self._refresh_table()
-        get_data_bus().data_changed.emit()
+        get_data_bus().notify()
 
     def _on_delete_clicked(self) -> None:
         if not self._columns:
@@ -1780,4 +1786,4 @@ class EmployersDatabaseWidget(QWidget):
 
         self._load_filters()
         self._refresh_table()
-        get_data_bus().data_changed.emit()
+        get_data_bus().notify()

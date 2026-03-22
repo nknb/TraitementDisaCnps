@@ -54,29 +54,47 @@ def insert_rows(
     errors = 0
     error_messages: list[str] = []
 
-    conn = get_connection()
+    # Matérialise l'itérable une seule fois (permet de le parcourir deux fois si fallback)
+    all_rows = [tuple(r) for r in rows]
 
     if atomic:
-        # Mode tout-ou-rien : une seule transaction, rollback au moindre problème
+        # Mode tout-ou-rien : executemany en une seule transaction (×10–100 vs boucle execute)
+        conn = get_connection()
         with conn:
             cur = conn.cursor()
-            for row in rows:
-                cur.execute(sql, tuple(row))
-                inserted += 1
+            cur.executemany(sql, all_rows)
+            inserted = len(all_rows)
         logger.info("Import atomique terminé : %d lignes insérées dans %s", inserted, table_name)
     else:
-        # Mode tolérant aux erreurs : chaque ligne dans son propre savepoint
-        with conn:
-            cur = conn.cursor()
-            for row in rows:
-                try:
-                    cur.execute(sql, tuple(row))
-                    inserted += 1
-                except Exception as exc:
-                    errors += 1
-                    if len(error_messages) < 20:
-                        error_messages.append(str(exc))
-                    logger.debug("Erreur ligne %d dans %s : %s", inserted + errors, table_name, exc)
+        # Mode tolérant aux erreurs :
+        # 1. Fast path  — executemany() sur données propres (O(1) appel SQL)
+        # 2. Slow path  — row-by-row si executemany échoue (données avec erreurs)
+        conn = get_connection()
+        fast_ok = False
+        try:
+            with conn:
+                cur = conn.cursor()
+                cur.executemany(sql, all_rows)
+                inserted = len(all_rows)
+                fast_ok = True
+        except Exception:
+            pass  # _AutoCloseConn.__exit__ a déjà rollbacké et fermé la connexion
+
+        if not fast_ok and all_rows:
+            # Slow path : nouvelle connexion, exécution ligne par ligne
+            conn2 = get_connection()
+            with conn2:
+                cur2 = conn2.cursor()
+                for row in all_rows:
+                    try:
+                        cur2.execute(sql, row)
+                        inserted += 1
+                    except Exception as exc:
+                        errors += 1
+                        if len(error_messages) < 20:
+                            error_messages.append(str(exc))
+                        logger.debug("Erreur ligne %d dans %s : %s", inserted + errors, table_name, exc)
+
         if errors:
             logger.warning(
                 "Import partiel dans %s : %d insérées, %d erreurs", table_name, inserted, errors

@@ -6,7 +6,7 @@
 
 from pathlib import Path as _Path
 _CALENDAR_ICON = str(
-    _Path(__file__).parent / "pages" / "home" / "icons" / "calendar.svg"
+    _Path(__file__).parent / "pages" / "home" / "icons" / "calendar_white.svg"
 ).replace("\\", "/")
 
 # ── Constantes CNPS exportables ───────────────────────────────────────────────

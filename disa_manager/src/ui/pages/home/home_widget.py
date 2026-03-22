@@ -23,8 +23,10 @@ from PySide6.QtWidgets import (
 
 from .home_ui import Ui_Form
 from db.connection import get_connection
+from db.audit import log_audit, snapshot_traitement_disa
 from core.events import get_data_bus
 from core.session import get_current_user
+from ui.notification_widget import get_notification_manager
 
 # Rôles custom sur la colonne 0 de chaque ligne
 _ROLE_IS_TRAITE    = Qt.ItemDataRole.UserRole + 10  # flag TRAITÉ pour le délégué
@@ -872,6 +874,82 @@ class HomeWidget(QWidget):
         if missing:
             return "Les champs suivants sont obligatoires :\n" + "\n".join(f"  {m}" for m in missing)
         return None
+
+    def _validate_business_rules(self, traitement_data: dict) -> str | None:
+        """Vérifie la cohérence métier des champs numériques du traitement.
+
+        Retourne un message d'erreur descriptif, ou None si tout est valide.
+        Les valeurs vides / non numériques sont ignorées (champs optionnels).
+        """
+        def _int(key: str):
+            val = traitement_data.get(key)
+            try:
+                return int(val) if val is not None and str(val).strip() != "" else None
+            except (ValueError, TypeError):
+                return None
+
+        traitees  = _int("nbre_traitees")
+        validees  = _int("nbre_validees")
+        rejetees  = _int("nbre_rejetees")
+        rej_trait = _int("nbre_rejetees_traitees")
+        total_val = _int("nbre_total_validees")
+        restant   = _int("nbre_restant")
+
+        errors: list[str] = []
+
+        # Règle 1 : aucune valeur négative
+        for name, val in [
+            ("Lignes traitées", traitees),
+            ("Lignes validées", validees),
+            ("Lignes rejetées", rejetees),
+            ("Rejets traités",  rej_trait),
+            ("Total validées",  total_val),
+            ("Restant rejets",  restant),
+        ]:
+            if val is not None and val < 0:
+                errors.append(f"{name} ne peut pas être négatif ({val})")
+
+        # Règle 2 : validées + rejetées ≤ traitées
+        if validees is not None and rejetees is not None and traitees is not None:
+            if validees + rejetees > traitees:
+                errors.append(
+                    f"Lignes validées ({validees}) + rejetées ({rejetees})"
+                    f" > traitées ({traitees})"
+                )
+
+        # Règle 3 : rejets traités ≤ total rejets
+        if rej_trait is not None and rejetees is not None:
+            if rej_trait > rejetees:
+                errors.append(
+                    f"Rejets traités ({rej_trait}) > total rejets ({rejetees})"
+                )
+
+        # Règle 4 : restant = rejetées − rejets_traités (avertissement non bloquant)
+        if restant is not None and rejetees is not None and rej_trait is not None:
+            expected = rejetees - rej_trait
+            if restant != expected:
+                errors.append(
+                    f"Restant ({restant}) ≠ rejetées − rejets traités ({expected})"
+                )
+
+        # Règle 5 : total validées ≥ validées initiales
+        if total_val is not None and validees is not None:
+            if total_val < validees:
+                errors.append(
+                    f"Total validées après rejets ({total_val}) < validées initiales ({validees})"
+                )
+
+        return "\n".join(errors) if errors else None
+
+    def _notify(self, title: str, message: str = "", notif_type: str = "info") -> None:
+        """Envoie une notification in-app, ou bascule sur QMessageBox si indisponible."""
+        nm = get_notification_manager()
+        if nm:
+            nm.notify(title, message, notif_type)
+        elif notif_type in ("error", "warning"):
+            QMessageBox.warning(self, title, message or title)
+        else:
+            QMessageBox.information(self, title, message or title)
 
     def _configure_date_and_input_widgets(self) -> None:
         """Configure les champs de date cliquables et remplace les listes déroulantes.
@@ -1745,16 +1823,37 @@ class HomeWidget(QWidget):
             QMessageBox.warning(self, "Champs obligatoires manquants", err)
             return
 
+        # Validation des règles métier (cohérence des chiffres)
+        err_biz = self._validate_business_rules(traitement_data)
+        if err_biz:
+            msg = QMessageBox(self)
+            msg.setWindowTitle("Incohérence des données")
+            msg.setIcon(QMessageBox.Icon.Warning)
+            msg.setText(
+                "Les données saisies semblent incohérentes :\n\n"
+                + err_biz
+                + "\n\nVoulez-vous enregistrer quand même ?"
+            )
+            msg.setStandardButtons(
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            msg.setDefaultButton(QMessageBox.StandardButton.No)
+            if msg.exec() != QMessageBox.StandardButton.Yes:
+                return
+
         try:
             conn = get_connection()
         except Exception as exc:  # pragma: no cover - affichage UI
             QMessageBox.critical(self, "Erreur BD", f"Impossible d'ouvrir la base : {exc}")
             return
 
+        _user = get_current_user()
+        _traite_par = _user.username if _user else None
+
         with conn:
             cur = conn.cursor()
 
-            # Insertion dans identification_employeurs (on laisse plusieurs champs optionnels à NULL)
+            # Insertion dans identification_employeurs
             cur.execute(
                 """
                 INSERT INTO identification_employeurs (
@@ -1767,26 +1866,13 @@ class HomeWidget(QWidget):
                           ?, ?, ?, NULL, ?, ?)
                 """,
                 (
-                    numero,
-                    numero_cnps,
-                    raison_sociale,
-                    secteur,
-                    effectifs,
-                    periodicite,
-                    telephone,
-                    mail,
-                    localites,
-                    exercice,
+                    numero, numero_cnps, raison_sociale, secteur, effectifs,
+                    periodicite, telephone, mail, localites, exercice,
                 ),
             )
-
             employeur_id = cur.lastrowid
 
-            # Utilisateur courant
-            _user = get_current_user()
-            _traite_par = _user.username if _user else None
-
-            # Insertion dans traitement_disa (avec STATUT persistant et TRAITÉ PAR)
+            # Insertion dans traitement_disa
             cur.execute(
                 """
                 INSERT INTO traitement_disa (
@@ -1800,32 +1886,29 @@ class HomeWidget(QWidget):
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    employeur_id,
-                    exercice,
-                    disa_anterieures_a_recueillir,
-                    date_reception,
-                    date_traitement,
-                    date_validation,
-                    effectif_disa,
-                    nbre_traitees,
-                    nbre_validees,
-                    nbre_rejetees,
-                    actions_menees,
-                    nbre_rejetees_traitees,
-                    nbre_total_validees,
-                    date_traitement_rejet,
-                    nbre_restant,
-                    observations,
-                    statut,
-                    _traite_par,
+                    employeur_id, exercice, disa_anterieures_a_recueillir,
+                    date_reception, date_traitement, date_validation,
+                    effectif_disa, nbre_traitees, nbre_validees, nbre_rejetees,
+                    actions_menees, nbre_rejetees_traitees, nbre_total_validees,
+                    date_traitement_rejet, nbre_restant, observations,
+                    statut, _traite_par,
                 ),
             )
+            td_id = cur.lastrowid
+
+            # Audit log
+            log_audit(conn, _traite_par, "INSERT", "identification_employeurs", employeur_id,
+                      new_values={"numero_cnps": numero_cnps, "raison_sociale": raison_sociale,
+                                  "exercice": exercice})
+            log_audit(conn, _traite_par, "INSERT", "traitement_disa", td_id,
+                      new_values={"statut": statut, "exercice": exercice,
+                                  "employeur_id": employeur_id})
 
         self.load_data()
-        QMessageBox.information(self, "Succès", "Enregistrement ajouté avec succès.")
+        self._notify("Enregistrement ajouté", f"{raison_sociale} — {exercice}", "success")
 
         # Notifie les autres onglets qu'une modification a eu lieu
-        get_data_bus().data_changed.emit()
+        get_data_bus().notify()
 
     def on_update_clicked(self) -> None:
         """Met à jour l'employeur + traitement DISA sélectionnés."""
@@ -1889,6 +1972,24 @@ class HomeWidget(QWidget):
         if err:
             QMessageBox.warning(self, "Champs obligatoires manquants", err)
             return
+
+        # Validation des règles métier (cohérence des chiffres)
+        err_biz = self._validate_business_rules(traitement_data)
+        if err_biz:
+            msg = QMessageBox(self)
+            msg.setWindowTitle("Incohérence des données")
+            msg.setIcon(QMessageBox.Icon.Warning)
+            msg.setText(
+                "Les données saisies semblent incohérentes :\n\n"
+                + err_biz
+                + "\n\nVoulez-vous enregistrer quand même ?"
+            )
+            msg.setStandardButtons(
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            msg.setDefaultButton(QMessageBox.StandardButton.No)
+            if msg.exec() != QMessageBox.StandardButton.Yes:
+                return
 
         # ── Vérification TRAITÉ : seul l'admin (ou l'agent qui a traité) peut modifier
         _current_user = get_current_user()
@@ -1956,8 +2057,22 @@ class HomeWidget(QWidget):
             QMessageBox.critical(self, "Erreur BD", f"Impossible d'ouvrir la base : {exc}")
             return
 
+        _user = get_current_user()
+        _traite_par = _user.username if _user else None
+
         with conn:
             cur = conn.cursor()
+
+            # Lire les anciennes valeurs pour l'audit et le snapshot
+            _old_td = cur.execute(
+                "SELECT * FROM traitement_disa WHERE employeur_id = ? AND exercice = ?",
+                (employeur_id, exercice),
+            ).fetchone()
+            _td_id = _old_td["id"] if _old_td else None
+
+            # Snapshot de l'état précédent avant modification
+            if _td_id:
+                snapshot_traitement_disa(conn, _td_id, _traite_par)
 
             # Mise à jour de l'employeur
             # updated_at inclus si la colonne existe (migration 5 appliquée)
@@ -1991,10 +2106,6 @@ class HomeWidget(QWidget):
                     employeur_id,
                 ),
             )
-
-            # Utilisateur courant
-            _user = get_current_user()
-            _traite_par = _user.username if _user else None
 
             # INSERT OR UPDATE dans traitement_disa via ON CONFLICT (en incluant STATUT et TRAITÉ PAR)
             cur.execute(
@@ -2049,6 +2160,20 @@ class HomeWidget(QWidget):
                 ),
             )
 
+            # Audit log UPDATE
+            _new_td_row = cur.execute(
+                "SELECT id FROM traitement_disa WHERE employeur_id = ? AND exercice = ?",
+                (employeur_id, exercice),
+            ).fetchone()
+            _final_td_id = _new_td_row["id"] if _new_td_row else _td_id
+            log_audit(conn, _traite_par, "UPDATE", "traitement_disa", _final_td_id,
+                      old_values={"statut": _old_td["statut"] if _old_td else None,
+                                  "traite_par": _old_td["traite_par"] if _old_td else None},
+                      new_values={"statut": statut, "traite_par": _traite_par,
+                                  "exercice": exercice})
+            log_audit(conn, _traite_par, "UPDATE", "identification_employeurs", employeur_id,
+                      new_values={"numero_cnps": numero_cnps, "raison_sociale": raison_sociale})
+
         # Rechargement des données et resélection de la ligne mise à jour
         self.load_data()
 
@@ -2068,11 +2193,11 @@ class HomeWidget(QWidget):
                 self.on_table_row_selected(row_index, 0)
                 break
 
-        QMessageBox.information(self, "Succès", "Enregistrement mis à jour avec succès.")
+        self._notify("Dossier mis à jour", f"{raison_sociale} — {exercice}", "success")
 
         self._current_locked_td_id = None  # le dossier sauvegardé n'est plus verrouillé par nous
         # Notifie les autres onglets qu'une modification a eu lieu
-        get_data_bus().data_changed.emit()
+        get_data_bus().notify()
 
     def on_delete_clicked(self) -> None:
         """Supprime l'employeur (et ses traitements DISA via CASCADE)."""
@@ -2099,14 +2224,37 @@ class HomeWidget(QWidget):
             return
 
         self._unlock_previous_row()
+        _user = get_current_user()
+        _actor = _user.username if _user else None
+
         with conn:
+            # Lire les infos avant suppression pour l'audit
+            _emp_row = conn.execute(
+                "SELECT numero_cnps, raison_sociale FROM identification_employeurs WHERE id = ?",
+                (employeur_id,),
+            ).fetchone()
+            _td_rows = conn.execute(
+                "SELECT id, exercice, statut FROM traitement_disa WHERE employeur_id = ?",
+                (employeur_id,),
+            ).fetchall()
+
             conn.execute("DELETE FROM identification_employeurs WHERE id = ?", (employeur_id,))
 
+            # Audit log suppression
+            _rs = _emp_row["raison_sociale"] if _emp_row else ""
+            log_audit(conn, _actor, "DELETE", "identification_employeurs", employeur_id,
+                      old_values={"numero_cnps": _emp_row["numero_cnps"] if _emp_row else None,
+                                  "raison_sociale": _rs})
+            for _td in _td_rows:
+                log_audit(conn, _actor, "DELETE", "traitement_disa", _td["id"],
+                          old_values={"exercice": _td["exercice"], "statut": _td["statut"]})
+
         self.on_clear_clicked()
-        QMessageBox.information(self, "Succès", "Employeur supprimé avec succès.")
+        self._notify("Employeur supprimé",
+                     (_emp_row["raison_sociale"] if _emp_row else "") or "", "info")
 
         # Notifie les autres onglets qu'une modification a eu lieu
-        get_data_bus().data_changed.emit()
+        get_data_bus().notify()
 
     # ------------------------------------------------------------------
     # Suspension d'entreprise

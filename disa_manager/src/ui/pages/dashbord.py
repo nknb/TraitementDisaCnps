@@ -50,6 +50,7 @@ class ChartWidget:
         get_data_bus().data_changed.connect(self.refresh)
 
     def refresh(self) -> None:
+        self._cache_dirty = True   # données BDD potentiellement modifiées
         self._animations.clear()
         self.add_chart()
 
@@ -339,107 +340,119 @@ class ChartWidget:
         traite_par_users: list[str] = []
         traite_par_nb: list[int] = []
 
-        try:
-            conn = get_connection()
-            with conn:
-                cur = conn.cursor()
+        # Cache : si les filtres n'ont pas changé depuis le dernier refresh
+        # (ex. data_changed déclenché par polling), on ne recalcule pas les données.
+        _filter_key = (self._filter_date_from, self._filter_date_to)
+        if (
+            self._last_data
+            and getattr(self, "_cache_filter_key", None) == _filter_key
+            and not getattr(self, "_cache_dirty", True)
+        ):
+            # Réutilise le snapshot précédent — seule la reconstruction des widgets suit
+            total_employeurs    = self._last_data.get("total_employeurs", 0)
+            lignes_traitees     = self._last_data.get("lignes_traitees", 0)
+            lignes_non_traitees = self._last_data.get("lignes_non_traitees", 0)
+            lignes_suspendues   = self._last_data.get("lignes_suspendues", 0)
+            localites           = self._last_data.get("localites", [])
+            disa_restantes      = self._last_data.get("disa_restantes", [])
+            disa_traitees_loc   = self._last_data.get("disa_traitees_loc", [])
+            secteurs            = self._last_data.get("secteurs", [])
+            secteurs_nb         = self._last_data.get("secteurs_nb", [])
+            traite_par_users    = self._last_data.get("traite_par_users", [])
+            traite_par_nb       = self._last_data.get("traite_par_nb", [])
+        else:
+            self._cache_filter_key = _filter_key
+            self._cache_dirty = False
 
-                # base_from sans filtre (total global)
-                base_from = (
-                    " FROM identification_employeurs ie "
-                    "LEFT JOIN traitement_disa td ON td.employeur_id = ie.id"
-                )
-                # base_from avec filtre dans le JOIN (préserve le LEFT JOIN)
-                base_from_f = (
-                    " FROM identification_employeurs ie "
-                    f"LEFT JOIN traitement_disa td ON td.employeur_id = ie.id {join_cond}"
-                )
+            try:
+                conn = get_connection()
+                with conn:
+                    cur = conn.cursor()
 
-                # Total employeurs — non filtré (comptage global)
-                cur.execute("SELECT COUNT(DISTINCT ie.id)" + base_from)
-                total_employeurs = cur.fetchone()[0] or 0
+                    # base_from avec filtre dans le JOIN (préserve le LEFT JOIN)
+                    base_from_f = (
+                        " FROM identification_employeurs ie "
+                        f"LEFT JOIN traitement_disa td ON td.employeur_id = ie.id {join_cond}"
+                    )
 
-                # DISA suspendues (priorité sur le statut)
-                cur.execute(
-                    "SELECT COUNT(*) AS nb"
-                    + base_from_f
-                    + " WHERE COALESCE(td.is_suspended, 0) = 1",
-                    dparams,
-                )
-                lignes_suspendues = int((cur.fetchone() or [0])[0] or 0)
+                    # Requête unique pour les 4 compteurs scalaires (1 scan au lieu de 3)
+                    cur.execute(
+                        f"""
+                        SELECT
+                            COUNT(DISTINCT ie.id)                                                  AS total_emp,
+                            SUM(CASE WHEN COALESCE(td.is_suspended,0)=1 THEN 1 ELSE 0 END)        AS suspendues,
+                            SUM(CASE WHEN COALESCE(td.is_suspended,0)=0
+                                          AND COALESCE(td.statut,'NON TRAITÉ')<>'NON TRAITÉ'
+                                     THEN 1 ELSE 0 END)                                            AS traitees,
+                            SUM(CASE WHEN COALESCE(td.is_suspended,0)=0
+                                          AND COALESCE(td.statut,'NON TRAITÉ')='NON TRAITÉ'
+                                     THEN 1 ELSE 0 END)                                            AS non_traitees
+                        {base_from_f}
+                        """,
+                        dparams,
+                    )
+                    _kpi = cur.fetchone()
+                    total_employeurs    = int((_kpi[0] if _kpi else None) or 0)
+                    lignes_suspendues   = int((_kpi[1] if _kpi else None) or 0)
+                    lignes_traitees     = int((_kpi[2] if _kpi else None) or 0)
+                    lignes_non_traitees = int((_kpi[3] if _kpi else None) or 0)
 
-                # DISA traitées / non traitées — hors suspendues, filtrées via JOIN
-                cur.execute(
-                    "SELECT COALESCE(td.statut, 'NON TRAITÉ') AS s, COUNT(*) AS nb"
-                    + base_from_f
-                    + " WHERE COALESCE(td.is_suspended, 0) = 0"
-                    + " GROUP BY COALESCE(td.statut, 'NON TRAITÉ')",
-                    dparams,
-                )
-                for statut, nb in cur.fetchall():
-                    statut_u = str(statut or "").upper()
-                    nb_i = int(nb or 0)
-                    if "NON" in statut_u and "TRAIT" in statut_u:
-                        lignes_non_traitees += nb_i
-                    else:
-                        lignes_traitees += nb_i
+                    # DISA par localité — filtre dans le JOIN (tous les employeurs restent)
+                    cur.execute(
+                        f"""
+                        SELECT
+                            COALESCE(ie.localites, 'NON RENSEIGNÉE') AS localite,
+                            SUM(CASE WHEN COALESCE(td.statut,'NON TRAITÉ')='NON TRAITÉ'
+                                     THEN 1 ELSE 0 END),
+                            SUM(CASE WHEN COALESCE(td.statut,'NON TRAITÉ')<>'NON TRAITÉ'
+                                     THEN 1 ELSE 0 END)
+                        FROM identification_employeurs ie
+                        LEFT JOIN traitement_disa td ON td.employeur_id = ie.id {join_cond}
+                        GROUP BY COALESCE(ie.localites,'NON RENSEIGNÉE')
+                        ORDER BY 2 DESC, 3 DESC
+                        """,
+                        dparams,
+                    )
+                    for loc, restant, traite in cur.fetchall():
+                        localites.append(str(loc))
+                        disa_restantes.append(int(restant or 0))
+                        disa_traitees_loc.append(int(traite or 0))
 
-                # DISA par localité — filtre dans le JOIN (tous les employeurs restent)
-                cur.execute(
-                    f"""
-                    SELECT
-                        COALESCE(ie.localites, 'NON RENSEIGNÉE') AS localite,
-                        SUM(CASE WHEN COALESCE(td.statut,'NON TRAITÉ')='NON TRAITÉ'
-                                 THEN 1 ELSE 0 END),
-                        SUM(CASE WHEN COALESCE(td.statut,'NON TRAITÉ')<>'NON TRAITÉ'
-                                 THEN 1 ELSE 0 END)
-                    FROM identification_employeurs ie
-                    LEFT JOIN traitement_disa td ON td.employeur_id = ie.id {join_cond}
-                    GROUP BY COALESCE(ie.localites,'NON RENSEIGNÉE')
-                    ORDER BY 2 DESC, 3 DESC
-                    """,
-                    dparams,
-                )
-                for loc, restant, traite in cur.fetchall():
-                    localites.append(str(loc))
-                    disa_restantes.append(int(restant or 0))
-                    disa_traitees_loc.append(int(traite or 0))
+                    # Secteurs — filtre dans le JOIN (tous les employeurs restent)
+                    cur.execute(
+                        f"""
+                        SELECT COALESCE(ie.secteur_activite,'NON RENSEIGNÉ') AS secteur,
+                               COUNT(DISTINCT ie.id) AS nb
+                        FROM identification_employeurs ie
+                        LEFT JOIN traitement_disa td ON td.employeur_id = ie.id {join_cond}
+                        GROUP BY COALESCE(ie.secteur_activite,'NON RENSEIGNÉ')
+                        ORDER BY nb DESC LIMIT 8
+                        """,
+                        dparams,
+                    )
+                    for sect, nb in cur.fetchall():
+                        secteurs.append(str(sect))
+                        secteurs_nb.append(int(nb or 0))
 
-                # Secteurs — filtre dans le JOIN (tous les employeurs restent)
-                cur.execute(
-                    f"""
-                    SELECT COALESCE(ie.secteur_activite,'NON RENSEIGNÉ') AS secteur,
-                           COUNT(DISTINCT ie.id) AS nb
-                    FROM identification_employeurs ie
-                    LEFT JOIN traitement_disa td ON td.employeur_id = ie.id {join_cond}
-                    GROUP BY COALESCE(ie.secteur_activite,'NON RENSEIGNÉ')
-                    ORDER BY nb DESC LIMIT 8
-                    """,
-                    dparams,
-                )
-                for sect, nb in cur.fetchall():
-                    secteurs.append(str(sect))
-                    secteurs_nb.append(int(nb or 0))
+                    # traite_par — filtré via AND dans WHERE
+                    cur.execute(
+                        f"""
+                        SELECT COALESCE(traite_par, 'Non renseigné') AS utilisateur,
+                               COUNT(*) AS nb
+                        FROM traitement_disa td
+                        WHERE COALESCE(statut, 'NON TRAITÉ') <> 'NON TRAITÉ'
+                          {and_cond}
+                        GROUP BY COALESCE(traite_par, 'Non renseigné')
+                        ORDER BY nb DESC
+                        """,
+                        dparams,
+                    )
+                    for user, nb in cur.fetchall():
+                        traite_par_users.append(str(user))
+                        traite_par_nb.append(int(nb or 0))
 
-                # traite_par — filtré via AND dans WHERE
-                cur.execute(
-                    f"""
-                    SELECT COALESCE(traite_par, 'Non renseigné') AS utilisateur,
-                           COUNT(*) AS nb
-                    FROM traitement_disa td
-                    WHERE COALESCE(statut, 'NON TRAITÉ') <> 'NON TRAITÉ'
-                      {and_cond}
-                    GROUP BY COALESCE(traite_par, 'Non renseigné')
-                    ORDER BY nb DESC
-                    """,
-                    dparams,
-                )
-                for user, nb in cur.fetchall():
-                    traite_par_users.append(str(user))
-                    traite_par_nb.append(int(nb or 0))
-
-        except Exception:
-            logger.exception("Erreur lors du chargement des données du dashboard")
+            except Exception:
+                logger.exception("Erreur lors du chargement des données du dashboard")
 
         # ── Snapshot des données pour l'export Excel ──────────────────
         total_disa = lignes_traitees + lignes_non_traitees + lignes_suspendues

@@ -105,6 +105,68 @@ _MIGRATIONS: list[tuple[int, str, list[str]]] = [
             "CREATE INDEX IF NOT EXISTS idx_ie_numero_cnps ON identification_employeurs(numero_cnps)",
         ],
     ),
+    (
+        7,
+        "Table audit_log pour la traçabilité complète des opérations",
+        [
+            """CREATE TABLE IF NOT EXISTS audit_log (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user        TEXT,
+                action      TEXT NOT NULL,
+                table_name  TEXT NOT NULL,
+                record_id   INTEGER,
+                old_values  TEXT,
+                new_values  TEXT,
+                timestamp   TEXT NOT NULL DEFAULT (datetime('now'))
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp)",
+            "CREATE INDEX IF NOT EXISTS idx_audit_table_record ON audit_log(table_name, record_id)",
+            "CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user)",
+        ],
+    ),
+    (
+        8,
+        "Table traitement_disa_history (snapshot avant chaque UPDATE)",
+        [
+            """CREATE TABLE IF NOT EXISTS traitement_disa_history (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_id       INTEGER NOT NULL,
+                employeur_id    INTEGER NOT NULL,
+                exercice        INTEGER,
+                disa_anterieures_a_recueillir TEXT,
+                date_de_reception   TEXT,
+                date_de_traitement  TEXT,
+                date_de_validation  TEXT,
+                effectif_disa   INTEGER,
+                nbre_de_lignes_traitees  INTEGER,
+                nbre_de_lignes_validees  INTEGER,
+                nbre_de_lignes_rejetees  INTEGER,
+                actions_menees  TEXT,
+                nbre_de_lignes_rejetees_traitees INTEGER,
+                nbre_total_de_lignes_validees_apres_traitement_des_rejets INTEGER,
+                date_de_traitement_rejet TEXT,
+                nbre_restant_de_rejet INTEGER,
+                observations    TEXT,
+                statut          TEXT,
+                traite_par      TEXT,
+                is_suspended    INTEGER,
+                version_at      TEXT NOT NULL DEFAULT (datetime('now')),
+                version_by      TEXT
+            )""",
+            "CREATE INDEX IF NOT EXISTS idx_history_source ON traitement_disa_history(source_id)",
+            "CREATE INDEX IF NOT EXISTS idx_history_version_at ON traitement_disa_history(version_at)",
+        ],
+    ),
+    (
+        9,
+        "Index sur updated_at et created_at dans traitement_disa (filtre date du dashboard)",
+        [
+            # COALESCE(updated_at, created_at) est utilisé dans le filtre date du dashboard.
+            # Sans ces index, SQLite fait un full scan sur traitement_disa à chaque refresh.
+            "CREATE INDEX IF NOT EXISTS idx_td_updated_at ON traitement_disa(updated_at)",
+            "CREATE INDEX IF NOT EXISTS idx_td_created_at ON traitement_disa(created_at)",
+        ],
+    ),
 ]
 
 

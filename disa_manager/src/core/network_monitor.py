@@ -144,7 +144,7 @@ class NetworkMonitor(QObject):
                         import contextlib
                         with contextlib.suppress(Exception):
                             from core.events import get_data_bus
-                            get_data_bus().data_changed.emit()
+                            get_data_bus().notify()
                 except Exception as e:
                     logger.warning("Replay de la file d'attente échoué : %s", e)
 

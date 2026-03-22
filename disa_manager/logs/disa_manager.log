@@ -1320,3 +1320,41 @@ Le fichier a peut-être été supprimé ou le partage réseau est déconnecté.
 2026-03-22 10:31:24,790 [INFO] db.init_db: Base de données prête : /Users/blanchard/Documents/disa.db
 2026-03-22 10:31:29,481 [INFO] core.session: Connexion : utilisateur 'admin' (rôle=admin)
 2026-03-22 10:31:29,972 [INFO] __main__: Fenêtre principale ouverte
+2026-03-22 10:37:24,043 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-22 10:37:24,405 [DEBUG] db.init_db: Initialisation de la base : /Users/blanchard/Documents/disa.db
+2026-03-22 10:37:24,407 [INFO] db.init_db: Base de données prête : /Users/blanchard/Documents/disa.db
+2026-03-22 10:37:30,489 [INFO] core.session: Connexion : utilisateur 'admin' (rôle=admin)
+2026-03-22 10:37:31,118 [INFO] __main__: Fenêtre principale ouverte
+2026-03-22 10:41:07,779 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-22 10:41:08,055 [DEBUG] db.init_db: Initialisation de la base : /Users/blanchard/Documents/disa.db
+2026-03-22 10:41:08,057 [INFO] db.init_db: Base de données prête : /Users/blanchard/Documents/disa.db
+2026-03-22 10:41:23,531 [INFO] core.session: Connexion : utilisateur 'admin' (rôle=admin)
+2026-03-22 10:41:24,139 [INFO] __main__: Fenêtre principale ouverte
+2026-03-22 11:00:16,149 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-22 11:00:16,489 [DEBUG] db.init_db: Initialisation de la base : /Users/blanchard/Documents/disa.db
+2026-03-22 11:00:16,499 [INFO] db.init_db: Application de la migration v7 : Table audit_log pour la traçabilité complète des opérations
+2026-03-22 11:00:16,500 [INFO] db.init_db: Migration v7 appliquée avec succès
+2026-03-22 11:00:16,500 [INFO] db.init_db: Application de la migration v8 : Table traitement_disa_history (snapshot avant chaque UPDATE)
+2026-03-22 11:00:16,501 [INFO] db.init_db: Migration v8 appliquée avec succès
+2026-03-22 11:00:16,501 [INFO] db.init_db: Base de données prête : /Users/blanchard/Documents/disa.db
+2026-03-22 11:00:16,514 [INFO] db.backup: Backup créé : /Users/blanchard/Documents/backups/disa_backup_20260322_110016.db
+2026-03-22 11:00:27,061 [INFO] core.session: Connexion : utilisateur 'admin' (rôle=admin)
+2026-03-22 11:00:27,759 [INFO] __main__: Fenêtre principale ouverte
+2026-03-22 11:02:15,516 [WARNING] db.audit: snapshot_traitement_disa : impossible de créer le snapshot (table traitement_disa_history has no column named created_at)
+2026-03-22 11:02:34,679 [WARNING] db.audit: snapshot_traitement_disa : impossible de créer le snapshot (table traitement_disa_history has no column named created_at)
+2026-03-22 11:02:39,829 [WARNING] db.audit: snapshot_traitement_disa : impossible de créer le snapshot (table traitement_disa_history has no column named created_at)
+2026-03-22 11:13:43,835 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-22 11:13:44,289 [DEBUG] db.init_db: Initialisation de la base : /Users/blanchard/Documents/disa.db
+2026-03-22 11:13:44,294 [INFO] db.init_db: Application de la migration v9 : Index sur updated_at et created_at dans traitement_disa (filtre date du dashboard)
+2026-03-22 11:13:44,299 [INFO] db.init_db: Migration v9 appliquée avec succès
+2026-03-22 11:13:44,299 [INFO] db.init_db: Base de données prête : /Users/blanchard/Documents/disa.db
+2026-03-22 11:13:44,310 [INFO] db.backup: Backup créé : /Users/blanchard/Documents/backups/disa_backup_20260322_111344.db
+2026-03-22 11:13:51,237 [INFO] core.session: Connexion : utilisateur 'admin' (rôle=admin)
+2026-03-22 11:13:51,911 [INFO] __main__: Fenêtre principale ouverte
+2026-03-22 11:14:50,362 [WARNING] db.audit: snapshot_traitement_disa : impossible de créer le snapshot (table traitement_disa_history has no column named created_at)
+2026-03-22 11:15:14,397 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-22 11:15:14,656 [DEBUG] db.init_db: Initialisation de la base : /Users/blanchard/Documents/disa.db
+2026-03-22 11:15:14,662 [INFO] db.init_db: Base de données prête : /Users/blanchard/Documents/disa.db
+2026-03-22 11:15:14,674 [INFO] db.backup: Backup créé : /Users/blanchard/Documents/backups/disa_backup_20260322_111514.db
+2026-03-22 11:15:20,263 [INFO] core.session: Connexion : utilisateur 'admin' (rôle=admin)
+2026-03-22 11:15:20,755 [INFO] __main__: Fenêtre principale ouverte

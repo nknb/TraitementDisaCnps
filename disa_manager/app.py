@@ -13,7 +13,8 @@ if not getattr(sys, "frozen", False):
     if str(SRC_DIR) not in sys.path:
         sys.path.insert(0, str(SRC_DIR))
 
-from db.init_db import init_db  # type: ignore  # noqa: E402
+from db.init_db import init_db, DB_PATH  # type: ignore  # noqa: E402
+from db.backup import backup_db  # type: ignore  # noqa: E402
 from ui.pages.login_dialog import LoginDialog  # type: ignore  # noqa: E402
 from ui.main_window import MainWindow  # type: ignore  # noqa: E402
 
@@ -58,6 +59,9 @@ def main() -> None:
     except Exception:
         logger.exception("Échec de l'initialisation de la base de données")
         sys.exit(1)
+
+    # Sauvegarde automatique au démarrage (silencieuse si erreur)
+    backup_db(DB_PATH)
 
     login = LoginDialog()
     if login.exec() == LoginDialog.DialogCode.Accepted:

@@ -79,6 +79,10 @@ def _is_network_path(p: Path) -> bool:
     return s.startswith("\\\\") or s.startswith("//")
 
 
+# Résultat mis en cache au chargement du module : DB_PATH ne change pas en cours d'exécution
+_IS_NETWORK: bool = _is_network_path(DB_PATH)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # FILE D'ATTENTE D'ÉCRITURES PERSISTANTE
 # ─────────────────────────────────────────────────────────────────────────────
@@ -93,6 +97,7 @@ class _WriteQueue:
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
+        self._replay_lock = threading.Lock()  # anti-réentrance : un seul replay à la fois
         self._queue: list[dict] = []
         self._path: Path = PROJECT_ROOT / "data" / "pending_writes.json"
         self._load()
@@ -131,7 +136,18 @@ class _WriteQueue:
 
         Retourne le nombre d'opérations rejouées avec succès.
         Les opérations réussies sont supprimées de la file.
+        Un mutex dédié (_replay_lock) empêche deux threads de rejouer simultanément.
         """
+        if not self._replay_lock.acquire(blocking=False):
+            logger.debug("replay() déjà en cours dans un autre thread — saut.")
+            return 0
+        try:
+            return self._do_replay(conn)
+        finally:
+            self._replay_lock.release()
+
+    def _do_replay(self, conn: sqlite3.Connection) -> int:
+        """Implémentation interne de replay(), appelée sous _replay_lock."""
         with self._lock:
             if not self._queue:
                 return 0
@@ -380,7 +396,7 @@ def _configure_conn(conn: sqlite3.Connection) -> None:
     conn.execute("PRAGMA synchronous  = NORMAL")
     conn.execute("PRAGMA cache_size   = -4096")   # 4 Mo de cache
 
-    if _is_network_path(DB_PATH):
+    if _IS_NETWORK:
         # WAL requiert .db-shm (mémoire partagée) → incompatible SMB/CIFS
         conn.execute("PRAGMA journal_mode = DELETE")
     else:

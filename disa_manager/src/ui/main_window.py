@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 
 from .ui_sidebar import Ui_MainWindow
 from . import resource_rc  # noqa: F401  # importe les ressources (icônes)
+from .notification_widget import NotificationManager, set_notification_manager
 from .pages.home.home_widget import HomeWidget
 from .pages.dashbord import ChartWidget
 from .pages.agent_dashboard import AgentChartWidget
@@ -43,6 +44,7 @@ class MainWindow(QMainWindow):
         self._apply_role_restrictions()
         self._setup_network_indicator()
         self._build_db_overlay()
+        self._setup_notifications()
         # Permet de rendre les polices du dashboard réactives au redimensionnement
         with contextlib.suppress(AttributeError):
             self.ui.page_2.installEventFilter(self)
@@ -522,9 +524,18 @@ class MainWindow(QMainWindow):
         else:
             self._show_db_overlay()
 
+    def _setup_notifications(self) -> None:
+        """Installe le gestionnaire de notifications flottant."""
+        self._notif_manager = NotificationManager(parent=self)
+        set_notification_manager(self._notif_manager)
+        self._notif_manager.reposition(self.rect())
+        self._notif_manager.show()
+
     def resizeEvent(self, event) -> None:  # type: ignore[override]
-        """Redimensionne l'overlay pour qu'il couvre toujours toute la fenêtre."""
+        """Redimensionne l'overlay et les notifications quand la fenêtre change de taille."""
         super().resizeEvent(event)
         with contextlib.suppress(AttributeError):
             if self._db_overlay.isVisible():
                 self._db_overlay.setGeometry(self.rect())
+        with contextlib.suppress(AttributeError):
+            self._notif_manager.reposition(self.rect())

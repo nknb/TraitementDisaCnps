@@ -571,7 +571,7 @@ class TraitementWidget(QWidget):
 		self.import_btn.setText("✅  Données importées")
 
 		# Notifie les autres onglets (Accueil, Base de données, Dashboard...)
-		get_data_bus().data_changed.emit()
+		get_data_bus().notify()
 
 	def _on_import_error(self, error_msg: str) -> None:
 		"""Appelé dans le thread principal si le thread d'import lève une exception."""

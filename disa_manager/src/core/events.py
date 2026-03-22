@@ -15,6 +15,12 @@ class _DataBus(QObject):
        (autres utilisateurs sur le même fichier .db partagé) grâce à un polling
        léger toutes les 4 secondes — et émettre ``data_changed`` pour que chaque
        widget rafraîchisse ses données.
+
+    Debounce :
+    Plusieurs appels rapides à ``notify()`` (ex. import par lots, CRUD enchaînés)
+    ne déclenchent qu'un seul ``data_changed`` après 100 ms de silence.
+    Cela évite le double-rechargement BDD observable quand database_widget émet
+    ``notify()`` alors qu'il est lui-même abonné au signal.
     """
 
     data_changed = Signal()
@@ -22,6 +28,12 @@ class _DataBus(QObject):
     def __init__(self) -> None:
         super().__init__()
         self._last_signature: str | None = None
+
+        # Timer de debounce : plusieurs notify() rapides → 1 seul data_changed
+        self._debounce = QTimer(self)
+        self._debounce.setSingleShot(True)
+        self._debounce.setInterval(100)   # 100 ms de silence avant émission
+        self._debounce.timeout.connect(self.data_changed.emit)
 
         # Démarre le polling inter-processus (10 secondes)
         # Intervalle plus long = moins de connexions simultanées sur la base réseau
@@ -49,9 +61,9 @@ class _DataBus(QObject):
                     """
                     SELECT
                         (SELECT COUNT(*) || '|' || COALESCE(MAX(updated_at), '')
-                         FROM traitement_disa)         AS t,
-                        (SELECT COUNT(*) || '|' || COALESCE(MAX(rowid), '')
-                         FROM identification_employeurs) AS e
+                         FROM traitement_disa)                                          AS t,
+                        (SELECT COUNT(*) || '|' || COALESCE(MAX(updated_at), MAX(rowid), '')
+                         FROM identification_employeurs)                                AS e
                     """
                 ).fetchone()
             if row is None:
@@ -60,13 +72,20 @@ class _DataBus(QObject):
         except Exception:
             return None
 
+    def notify(self) -> None:
+        """Demande un refresh global — plusieurs appels rapides = 1 seul signal après 100 ms.
+
+        Remplace ``get_data_bus().data_changed.emit()`` dans tout le code applicatif.
+        """
+        self._debounce.start()   # restart si déjà actif → repart de zéro
+
     def _poll_db_changes(self) -> None:
-        """Appelé toutes les 4 s. Émet data_changed si la base a changé."""
+        """Appelé toutes les 10 s. Émet data_changed si la base a changé."""
         sig = self._get_db_signature()
         if sig is None:
             return
         if self._last_signature is not None and sig != self._last_signature:
-            self.data_changed.emit()
+            self.notify()
         self._last_signature = sig
 
 
