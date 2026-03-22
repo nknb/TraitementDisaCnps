@@ -1,6 +1,9 @@
 """Login dialog — thème CNPS avec photo du bâtiment."""
 from __future__ import annotations
 
+import base64
+import json
+import sys
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QRect, QSize
@@ -10,7 +13,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import (
     QDialog, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit,
-    QPushButton, QFrame, QWidget,
+    QPushButton, QFrame, QWidget, QCheckBox,
 )
 
 import logging
@@ -19,6 +22,57 @@ from typing import Optional
 
 from db.connection import get_connection
 from core.session import set_current_user
+
+# ── Persistance "Se souvenir de moi" ─────────────────────────────────────────
+if getattr(sys, "frozen", False):
+    _DATA_DIR = Path(sys.executable).parent / "data"
+else:
+    _DATA_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data"
+
+_REMEMBER_FILE = _DATA_DIR / "remember_me.json"
+_XOR_KEY = b"CNPS-DiSA-2025"   # clé d'obfuscation locale (non cryptographique)
+
+
+def _xor_obfuscate(data: bytes, key: bytes) -> bytes:
+    """XOR cyclique — obfuscation légère, empêche la lecture directe du fichier."""
+    return bytes(b ^ key[i % len(key)] for i, b in enumerate(data))
+
+
+def _save_credentials(username: str, password: str) -> None:
+    """Sauvegarde username + password obfusqué dans data/remember_me.json."""
+    try:
+        _DATA_DIR.mkdir(parents=True, exist_ok=True)
+        obf = base64.b64encode(_xor_obfuscate(password.encode(), _XOR_KEY)).decode()
+        _REMEMBER_FILE.write_text(
+            json.dumps({"username": username, "password_obf": obf}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+    except Exception:
+        pass
+
+
+def _load_credentials() -> tuple[str, str] | None:
+    """Charge les identifiants mémorisés. Retourne (username, password) ou None."""
+    try:
+        if not _REMEMBER_FILE.exists():
+            return None
+        data = json.loads(_REMEMBER_FILE.read_text(encoding="utf-8"))
+        username = data.get("username", "")
+        obf = data.get("password_obf", "")
+        if not username or not obf:
+            return None
+        password = _xor_obfuscate(base64.b64decode(obf.encode()), _XOR_KEY).decode()
+        return username, password
+    except Exception:
+        return None
+
+
+def _clear_credentials() -> None:
+    """Supprime le fichier de mémorisation."""
+    try:
+        _REMEMBER_FILE.unlink(missing_ok=True)
+    except Exception:
+        pass
 
 logger = logging.getLogger(__name__)
 
@@ -226,6 +280,14 @@ class LoginDialog(QDialog):
         self.password_edit.setStyleSheet(_FIELD_QSS)
         rl.addWidget(self.password_edit)
 
+        # Case "Se souvenir de moi"
+        self.remember_check = QCheckBox("Se souvenir de moi")
+        self.remember_check.setStyleSheet(
+            f"QCheckBox {{ font-size: 10px; color: {_C_BLUE};"
+            " font-family: 'Segoe UI', Helvetica, Arial, sans-serif; spacing: 6px; }}"
+        )
+        rl.addWidget(self.remember_check)
+
         # Message d'erreur
         self.info_label = QLabel("")
         self.info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -247,7 +309,19 @@ class LoginDialog(QDialog):
         rl.addStretch(1)
         root.addWidget(right, stretch=58)
 
+        # ── Pré-remplissage si identifiants mémorisés ─────────────────────
+        self._prefill_remembered()
+
     # ------------------------------------------------------------------
+
+    def _prefill_remembered(self) -> None:
+        """Pré-remplit les champs si des identifiants ont été mémorisés."""
+        creds = _load_credentials()
+        if creds:
+            username, password = creds
+            self.username_edit.setText(username)
+            self.password_edit.setText(password)
+            self.remember_check.setChecked(True)
 
     def handle_login(self) -> None:
         """Valide les identifiants via la base SQLite."""
@@ -295,5 +369,12 @@ class LoginDialog(QDialog):
         # Succès : réinitialiser le compteur
         self._failed_attempts = 0
         self._lockout_until = None
+
+        # Mémorisation des identifiants selon la case cochée
+        if self.remember_check.isChecked():
+            _save_credentials(username, password)
+        else:
+            _clear_credentials()
+
         set_current_user(user_id=row["id"], username=row["username"], role=row["role"])
         self.accept()

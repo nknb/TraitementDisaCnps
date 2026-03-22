@@ -1358,3 +1358,42 @@ Le fichier a peut-être été supprimé ou le partage réseau est déconnecté.
 2026-03-22 11:15:14,674 [INFO] db.backup: Backup créé : /Users/blanchard/Documents/backups/disa_backup_20260322_111514.db
 2026-03-22 11:15:20,263 [INFO] core.session: Connexion : utilisateur 'admin' (rôle=admin)
 2026-03-22 11:15:20,755 [INFO] __main__: Fenêtre principale ouverte
+2026-03-22 12:14:54,570 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-22 12:14:54,939 [DEBUG] db.init_db: Initialisation de la base : /Users/blanchard/Documents/disa.db
+2026-03-22 12:14:54,951 [INFO] db.init_db: Base de données prête : /Users/blanchard/Documents/disa.db
+2026-03-22 12:14:54,969 [INFO] db.backup: Backup créé : /Users/blanchard/Documents/backups/disa_backup_20260322_121454.db
+2026-03-22 12:15:01,876 [INFO] core.session: Connexion : utilisateur 'admin' (rôle=admin)
+2026-03-22 12:15:02,627 [INFO] __main__: Fenêtre principale ouverte
+2026-03-22 12:32:40,528 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-22 12:32:41,213 [DEBUG] db.init_db: Initialisation de la base : /Users/blanchard/Documents/disa.db
+2026-03-22 12:32:41,217 [INFO] db.init_db: Base de données prête : /Users/blanchard/Documents/disa.db
+2026-03-22 12:32:41,228 [INFO] db.backup: Backup créé : /Users/blanchard/Documents/backups/disa_backup_20260322_123241.db
+2026-03-22 12:32:59,659 [INFO] core.session: Connexion : utilisateur 'admin' (rôle=admin)
+2026-03-22 12:33:00,298 [INFO] __main__: Fenêtre principale ouverte
+2026-03-22 12:33:08,436 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-22 12:33:08,626 [DEBUG] db.init_db: Initialisation de la base : /Users/blanchard/Documents/disa.db
+2026-03-22 12:33:08,628 [INFO] db.init_db: Base de données prête : /Users/blanchard/Documents/disa.db
+2026-03-22 12:33:08,638 [INFO] db.backup: Backup créé : /Users/blanchard/Documents/backups/disa_backup_20260322_123308.db
+2026-03-22 12:33:08,639 [INFO] db.backup: Ancien backup supprimé : disa_backup_20260322_110016.db
+2026-03-22 12:33:12,026 [INFO] core.session: Connexion : utilisateur 'admin' (rôle=admin)
+2026-03-22 12:33:12,653 [INFO] __main__: Fenêtre principale ouverte
+2026-03-22 12:33:30,987 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-22 12:33:31,137 [DEBUG] db.init_db: Initialisation de la base : /Users/blanchard/Documents/disa.db
+2026-03-22 12:33:31,141 [INFO] db.init_db: Base de données prête : /Users/blanchard/Documents/disa.db
+2026-03-22 12:33:31,150 [INFO] db.backup: Backup créé : /Users/blanchard/Documents/backups/disa_backup_20260322_123331.db
+2026-03-22 12:33:31,151 [INFO] db.backup: Ancien backup supprimé : disa_backup_20260322_111344.db
+2026-03-22 12:34:15,837 [INFO] __main__: Connexion annulée — fermeture
+2026-03-22 12:35:03,527 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-22 12:35:03,724 [DEBUG] db.init_db: Initialisation de la base : /Users/blanchard/Documents/disa.db
+2026-03-22 12:35:03,740 [INFO] db.init_db: Base de données prête : /Users/blanchard/Documents/disa.db
+2026-03-22 12:35:03,757 [INFO] db.backup: Backup créé : /Users/blanchard/Documents/backups/disa_backup_20260322_123503.db
+2026-03-22 12:35:03,759 [INFO] db.backup: Ancien backup supprimé : disa_backup_20260322_111514.db
+2026-03-22 12:35:07,670 [INFO] core.session: Connexion : utilisateur 'admin' (rôle=admin)
+2026-03-22 12:35:08,295 [INFO] __main__: Fenêtre principale ouverte
+2026-03-22 12:35:14,795 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-22 12:35:14,943 [DEBUG] db.init_db: Initialisation de la base : /Users/blanchard/Documents/disa.db
+2026-03-22 12:35:14,944 [INFO] db.init_db: Base de données prête : /Users/blanchard/Documents/disa.db
+2026-03-22 12:35:14,950 [INFO] db.backup: Backup créé : /Users/blanchard/Documents/backups/disa_backup_20260322_123514.db
+2026-03-22 12:35:14,951 [INFO] db.backup: Ancien backup supprimé : disa_backup_20260322_121454.db
+2026-03-22 12:35:22,292 [INFO] core.session: Connexion : utilisateur 'admin' (rôle=admin)
+2026-03-22 12:35:22,847 [INFO] __main__: Fenêtre principale ouverte
