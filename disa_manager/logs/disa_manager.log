@@ -1397,3 +1397,17 @@ Le fichier a peut-être été supprimé ou le partage réseau est déconnecté.
 2026-03-22 12:35:14,951 [INFO] db.backup: Ancien backup supprimé : disa_backup_20260322_121454.db
 2026-03-22 12:35:22,292 [INFO] core.session: Connexion : utilisateur 'admin' (rôle=admin)
 2026-03-22 12:35:22,847 [INFO] __main__: Fenêtre principale ouverte
+2026-03-22 13:40:14,282 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-22 13:40:14,672 [DEBUG] db.init_db: Initialisation de la base : /Users/blanchard/Documents/disa.db
+2026-03-22 13:40:14,676 [INFO] db.init_db: Base de données prête : /Users/blanchard/Documents/disa.db
+2026-03-22 13:40:14,685 [INFO] db.backup: Backup créé : /Users/blanchard/Documents/backups/disa_backup_20260322_134014.db
+2026-03-22 13:40:14,688 [INFO] db.backup: Ancien backup supprimé : disa_backup_20260322_123241.db
+2026-03-22 13:40:17,820 [INFO] core.session: Connexion : utilisateur 'admin' (rôle=admin)
+2026-03-22 13:40:18,468 [INFO] __main__: Fenêtre principale ouverte
+2026-03-23 08:04:25,044 [INFO] __main__: Démarrage de l'application Traitement DiSA
+2026-03-23 08:04:25,411 [DEBUG] db.init_db: Initialisation de la base : /Users/blanchard/Documents/disa.db
+2026-03-23 08:04:25,416 [INFO] db.init_db: Base de données prête : /Users/blanchard/Documents/disa.db
+2026-03-23 08:04:25,424 [INFO] db.backup: Backup créé : /Users/blanchard/Documents/backups/disa_backup_20260323_080425.db
+2026-03-23 08:04:25,427 [INFO] db.backup: Ancien backup supprimé : disa_backup_20260322_123308.db
+2026-03-23 08:04:30,608 [INFO] core.session: Connexion : utilisateur 'admin' (rôle=admin)
+2026-03-23 08:04:31,241 [INFO] __main__: Fenêtre principale ouverte
